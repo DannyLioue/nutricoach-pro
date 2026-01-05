@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // 密码哈希
+  role          Role      @default(NUTRITIONIST)
+  clients       Client[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Client {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  gender           Gender
+  birthDate        DateTime
+  height           Float
+  weight           Float
+  activityLevel    ActivityLevel
+  allergies        String   // JSON string array
+  medicalHistory   String   // JSON string array
+  preferences      String?
+  phone            String?
+  email            String?
+  reports          Report[]
+  recommendations  Recommendation[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Report {
+  id               String   @id @default(cuid())
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  fileUrl          String
+  fileName         String
+  fileType         String
+  extractedData    Json
+  analysis         Json?
+  uploadedAt       DateTime @default(now())
+  recommendations  Recommendation[]
+}
+
+model Recommendation {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reportId    String?
+  report      Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  type        RecType
+  content     Json
+  generatedAt DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  NUTRITIONIST
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum RecType {
+  DIET
+  EXERCISE
+  LIFESTYLE
+  COMPREHENSIVE
+}

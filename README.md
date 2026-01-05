@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NutriCoach Pro - 营养师智能分析平台
 
-## Getting Started
+> 专为营养师打造的 AI 驱动健康管理平台
 
-First, run the development server:
+## 功能特性
+
+- **客户管理** - 完整的客户档案管理
+- **体检报告分析** - AI 自动识别和分析体检指标
+- **智能建议生成** - 个性化饮食、运动和生活方式建议
+- **报告导出** - 生成专业的 PDF 健康报告
+
+## 技术栈
+
+- **前端**: Next.js 15 + TypeScript + Tailwind CSS
+- **后端**: Next.js API Routes + Prisma ORM
+- **数据库**: PostgreSQL
+- **AI**: Google Gemini 3.0 Pro
+- **认证**: NextAuth.js
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+npm install
+```
+
+### 2. 配置环境变量
+
+复制 `.env.example` 到 `.env.local` 并填写配置：
+
+```env
+DATABASE_URL="postgresql://..."
+NEXTAUTH_SECRET="..."
+GEMINI_API_KEY="..."
+```
+
+### 3. 初始化数据库
+
+```bash
+npx prisma db push
+```
+
+### 4. 运行开发服务器
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+访问 [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 项目结构
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+nutricoach-pro/
+├── app/                    # Next.js App Router
+│   ├── (auth)/            # 认证页面
+│   ├── (dashboard)/       # 主应用页面
+│   └── api/               # API Routes
+├── components/            # React 组件
+├── lib/                   # 工具库
+│   ├── ai/               # AI 服务
+│   └── db/               # 数据库
+├── types/                # TypeScript 类型
+└── prisma/               # 数据库模型
+```
 
-## Learn More
+## 开发计划
 
-To learn more about Next.js, take a look at the following resources:
+详见 [claude.md](./claude.md)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
