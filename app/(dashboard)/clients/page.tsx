@@ -51,28 +51,6 @@ export default function ClientsPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`确定要删除客户 "${name}" 吗？此操作不可恢复。`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/clients/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || '删除失败');
-      }
-
-      // 从列表中移除已删除的客户
-      setClients(clients.filter(client => client.id !== id));
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
   // 计算年龄
   const calculateAge = (birthDate: string) => {
     const today = new Date();
@@ -384,14 +362,17 @@ export default function ClientsPage() {
                                   {getInitial(client.name)}
                                 </span>
                               </div>
-                              <div>
+                              <Link
+                                href={`/clients/${client.id}`}
+                                className="hover:underline"
+                              >
                                 <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                                   {client.name}
                                 </div>
                                 <div className="text-sm text-zinc-500 dark:text-zinc-400">
                                   {getGenderLabel(client.gender)} · {age}岁
                                 </div>
-                              </div>
+                              </Link>
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -444,29 +425,17 @@ export default function ClientsPage() {
                           <td className="px-6 py-4">
                             <div className="flex justify-end gap-2">
                               <Link
+                                href={`/clients/${client.id}`}
+                                className="px-3 py-1.5 text-sm bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors"
+                              >
+                                详情
+                              </Link>
+                              <Link
                                 href={`/clients/${client.id}/edit`}
                                 className="px-3 py-1.5 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
                               >
                                 编辑
                               </Link>
-                              <Link
-                                href={`/analysis/new?clientId=${client.id}`}
-                                className="px-3 py-1.5 text-sm bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors"
-                              >
-                                分析
-                              </Link>
-                              <Link
-                                href={`/recommendations/new?reportId=all&clientId=${client.id}`}
-                                className="px-3 py-1.5 text-sm bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors"
-                              >
-                                方案
-                              </Link>
-                              <button
-                                onClick={() => handleDelete(client.id, client.name)}
-                                className="px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
-                              >
-                                删除
-                              </button>
                             </div>
                           </td>
                         </tr>

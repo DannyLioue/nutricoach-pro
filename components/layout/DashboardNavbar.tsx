@@ -27,12 +27,6 @@ export default function DashboardNavbar() {
             <Link href="/clients" className="text-zinc-700 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400">
               客户管理
             </Link>
-            <Link href="/analysis" className="text-zinc-700 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400">
-              报告分析
-            </Link>
-            <Link href="/recommendations" className="text-zinc-700 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400">
-              建议记录
-            </Link>
             <Link href="/settings" className="text-zinc-700 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400">
               设置
             </Link>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 // 验证 schema
@@ -13,7 +14,10 @@ const createClientSchema = z.object({
   activityLevel: z.enum(['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE']),
   allergies: z.string().default('[]'),
   medicalHistory: z.string().default('[]'),
+  healthConcerns: z.string().default('[]'),
   preferences: z.string().optional(),
+  userRequirements: z.string().optional(),
+  exerciseDetails: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
 });
@@ -34,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ clients });
   } catch (error) {
-    console.error('获取客户列表错误:', error);
+    logger.error('获取客户列表错误', error);
     return NextResponse.json({ error: '获取客户列表失败' }, { status: 500 });
   }
 }
@@ -63,7 +67,10 @@ export async function POST(request: NextRequest) {
         activityLevel: validatedData.activityLevel,
         allergies: validatedData.allergies,
         medicalHistory: validatedData.medicalHistory,
+        healthConcerns: validatedData.healthConcerns,
         preferences: validatedData.preferences || null,
+        userRequirements: validatedData.userRequirements || null,
+        exerciseDetails: validatedData.exerciseDetails || null,
         phone: validatedData.phone || null,
         email: validatedData.email || null,
       },
@@ -72,9 +79,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: '客户创建成功', client }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: '数据验证失败', details: error.errors }, { status: 400 });
+      logger.error('创建客户验证失败', error.issues);
+      return NextResponse.json({ error: '数据验证失败', details: error.issues }, { status: 400 });
     }
-    console.error('创建客户错误:', error);
-    return NextResponse.json({ error: '创建客户失败' }, { status: 500 });
+    logger.error('创建客户错误', error);
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    return NextResponse.json({ error: '创建客户失败', details: errorMessage }, { status: 500 });
   }
 }

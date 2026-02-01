@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, CircleCheck, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { ChevronDown, ChevronUp, CircleCheck, AlertTriangle, XCircle, Info, Sparkles, Utensils, Zap } from 'lucide-react';
 
 // ==================== Type Definitions ====================
 
@@ -10,11 +10,16 @@ export interface FoodItem {
   detail?: string;    // For Green zone (e.g., "Rich in Folate")
   limit?: string;     // For Yellow zone (e.g., "< 15g/day")
   reason?: string;    // For Red zone (e.g., "High Cholesterol")
+  category?: string;  // Food category (e.g., "蔬菜", "蛋白质", "主食")
+  nutrients?: string[];  // Key nutrients (e.g., ["叶酸", "钾", "镁"])
+  frequency?: string;    // Suggested frequency (e.g., "每日2-3次")
+  alternatives?: string[];  // Alternative foods for red zone
 }
 
 export interface TrafficSectionData {
   title: string;
   description: string;
+  rationale?: string;  // Why this category exists
   items: FoodItem[];
 }
 
@@ -36,35 +41,51 @@ interface ZoneHeaderProps {
   icon: React.ReactNode;
   title: string;
   description: string;
+  rationale?: string;
   bgColor: string;
   borderColor: string;
   textColor: string;
   isCollapsible?: boolean;
   isExpanded?: boolean;
   onToggle?: () => void;
+  itemCount?: number;
 }
 
 const ZoneHeader: React.FC<ZoneHeaderProps> = ({
   icon,
   title,
   description,
+  rationale,
   bgColor,
   borderColor,
   textColor,
   isCollapsible = false,
   isExpanded = true,
   onToggle,
+  itemCount = 0,
 }) => (
   <div
-    className={`flex items-start gap-3 p-4 rounded-t-lg border-2 ${bgColor} ${borderColor} ${isCollapsible ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
+    className={`flex items-start gap-3 p-4 ${isCollapsible ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
     onClick={isCollapsible ? onToggle : undefined}
   >
     <div className={`flex-shrink-0 mt-0.5 ${textColor}`}>{icon}</div>
     <div className="flex-1">
-      <h3 className={`font-bold text-lg ${textColor}`}>{title}</h3>
-      <p className={`text-sm ${textColor.replace('text-', 'text-opacity-80 text-').replace('-600', '-500').replace('-700', '-600')} mt-0.5`}>
+      <div className="flex items-center gap-2">
+        <h3 className={`font-bold text-lg ${textColor}`}>{title}</h3>
+        {itemCount > 0 && (
+          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${textColor.replace('text-', 'bg-').replace('-800', '-100').replace('-700', '-100')} ${textColor}`}>
+            {itemCount}项
+          </span>
+        )}
+      </div>
+      <p className={`text-sm mt-0.5 ${textColor.replace('text-', 'text-opacity-80 text-').replace('-600', '-500').replace('-700', '-600').replace('-800', '-600')}`}>
         {description}
       </p>
+      {rationale && (
+        <div className={`mt-2 p-2 rounded-lg ${textColor.replace('text-', 'bg-').replace('-800', '-50').replace('-700', '-50').replace('-600', '-50')}`}>
+          <p className={`text-xs font-medium ${textColor}`}>💡 {rationale}</p>
+        </div>
+      )}
     </div>
     {isCollapsible && (
       <div className={`flex-shrink-0 ${textColor}`}>
@@ -82,47 +103,100 @@ interface FoodListItemProps {
 const FoodListItem: React.FC<FoodListItemProps> = ({ item, variant }) => {
   const styles = {
     green: {
-      itemBg: 'bg-white/60',
+      itemBg: 'bg-white/80',
       itemBorder: 'border-green-200',
       nameColor: 'text-green-900',
       detailColor: 'text-green-700',
-      icon: <CircleCheck size={16} className="text-green-600 flex-shrink-0" />,
+      icon: <CircleCheck size={18} className="text-green-600 flex-shrink-0" />,
+      categoryBg: 'bg-green-100',
+      categoryText: 'text-green-800',
     },
     yellow: {
-      itemBg: 'bg-white/60',
+      itemBg: 'bg-white/80',
       itemBorder: 'border-yellow-200',
       nameColor: 'text-yellow-900',
       detailColor: 'text-yellow-700',
-      icon: <AlertTriangle size={16} className="text-yellow-600 flex-shrink-0" />,
+      icon: <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0" />,
+      categoryBg: 'bg-yellow-100',
+      categoryText: 'text-yellow-800',
     },
     red: {
-      itemBg: 'bg-white/60',
+      itemBg: 'bg-white/80',
       itemBorder: 'border-red-200',
       nameColor: 'text-red-900',
       detailColor: 'text-red-700',
-      icon: <XCircle size={16} className="text-red-600 flex-shrink-0" />,
+      icon: <XCircle size={18} className="text-red-600 flex-shrink-0" />,
+      categoryBg: 'bg-red-100',
+      categoryText: 'text-red-800',
     },
   };
 
   const style = styles[variant];
 
   return (
-    <div className={`p-3 rounded-lg border ${style.itemBg} ${style.itemBorder} flex items-start gap-2`}>
+    <div className={`p-4 rounded-xl border ${style.itemBg} ${style.itemBorder} flex items-start gap-3 hover:shadow-md transition-shadow`}>
       {style.icon}
       <div className="flex-1 min-w-0">
-        <span className={`font-medium ${style.nameColor}`}>{item.name}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`font-semibold text-base ${style.nameColor}`}>{item.name}</span>
+          {item.category && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.categoryBg} ${style.categoryText}`}>
+              {item.category}
+            </span>
+          )}
+          {item.frequency && variant === 'green' && (
+            <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-800 flex items-center gap-1">
+              <Utensils size={12} />
+              {item.frequency}
+            </span>
+          )}
+        </div>
+
         {item.detail && (
-          <p className={`text-xs mt-1 ${style.detailColor}`}>{item.detail}</p>
+          <p className={`text-sm mt-2 ${style.detailColor}`}>{item.detail}</p>
         )}
+
+        {item.nutrients && item.nutrients.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {item.nutrients.map((nutrient, idx) => (
+              <span
+                key={idx}
+                className={`px-2 py-0.5 rounded text-xs font-medium ${style.categoryBg} ${style.categoryText}`}
+              >
+                {nutrient}
+              </span>
+            ))}
+          </div>
+        )}
+
         {item.limit && (
-          <span className="inline-block mt-1.5 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs font-semibold rounded-full">
-            限制: {item.limit}
-          </span>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="px-3 py-1 bg-amber-100 text-amber-800 text-sm font-semibold rounded-full flex items-center gap-1">
+              <AlertTriangle size={14} />
+              限制: {item.limit}
+            </span>
+          </div>
         )}
+
         {item.reason && (
-          <div className="flex items-start gap-1 mt-1.5">
-            <Info size={12} className="text-red-500 flex-shrink-0 mt-0.5" />
-            <p className={`text-xs ${style.detailColor}`}>{item.reason}</p>
+          <div className={`mt-2 p-2 rounded-lg ${style.itemBorder} bg-opacity-50`}>
+            <div className="flex items-start gap-2">
+              <Info size={14} className={`flex-shrink-0 mt-0.5 ${variant === 'red' ? 'text-red-500' : style.detailColor}`} />
+              <p className={`text-sm ${style.detailColor}`}>{item.reason}</p>
+            </div>
+          </div>
+        )}
+
+        {item.alternatives && item.alternatives.length > 0 && (
+          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <p className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-1">✅ 推荐替代:</p>
+            <div className="flex flex-wrap gap-1">
+              {item.alternatives.map((alt, idx) => (
+                <span key={idx} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
+                  {alt}
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -133,6 +207,7 @@ const FoodListItem: React.FC<FoodListItemProps> = ({ item, variant }) => {
 interface ZoneSectionProps {
   title: string;
   description: string;
+  rationale?: string;
   items: FoodItem[];
   variant: 'green' | 'yellow' | 'red';
   defaultExpanded?: boolean;
@@ -141,6 +216,7 @@ interface ZoneSectionProps {
 const ZoneSection: React.FC<ZoneSectionProps> = ({
   title,
   description,
+  rationale,
   items,
   variant,
   defaultExpanded = true,
@@ -149,59 +225,93 @@ const ZoneSection: React.FC<ZoneSectionProps> = ({
 
   const styles = {
     green: {
-      containerBg: 'bg-green-50',
-      containerBorder: 'border-green-200',
-      headerBg: 'bg-green-100',
-      headerBorder: 'border-green-300',
-      headerText: 'text-green-800',
-      titleColor: 'text-green-900',
+      containerBg: 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
+      containerBorder: 'border-green-300',
+      headerBg: 'bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/40 dark:to-emerald-900/40',
+      headerBorder: 'border-b border-green-300',
+      headerText: 'text-green-900 dark:text-green-100',
     },
     yellow: {
-      containerBg: 'bg-yellow-50',
-      containerBorder: 'border-yellow-200',
-      headerBg: 'bg-yellow-100',
-      headerBorder: 'border-yellow-300',
-      headerText: 'text-yellow-800',
-      titleColor: 'text-yellow-900',
+      containerBg: 'bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20',
+      containerBorder: 'border-yellow-300',
+      headerBg: 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/40 dark:to-amber-900/40',
+      headerBorder: 'border-b border-yellow-300',
+      headerText: 'text-yellow-900 dark:text-yellow-100',
     },
     red: {
-      containerBg: 'bg-red-50',
-      containerBorder: 'border-red-200',
-      headerBg: 'bg-red-100',
-      headerBorder: 'border-red-300',
-      headerText: 'text-red-800',
-      titleColor: 'text-red-900',
+      containerBg: 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20',
+      containerBorder: 'border-red-300',
+      headerBg: 'bg-gradient-to-r from-red-100 to-rose-100 dark:from-red-900/40 dark:to-rose-900/40',
+      headerBorder: 'border-b border-red-300',
+      headerText: 'text-red-900 dark:text-red-100',
     },
   };
 
   const style = styles[variant];
 
   const icons = {
-    green: <CircleCheck size={24} />,
-    yellow: <AlertTriangle size={24} />,
-    red: <XCircle size={24} />,
+    green: <CircleCheck size={28} className={style.headerText} />,
+    yellow: <AlertTriangle size={28} className={style.headerText} />,
+    red: <XCircle size={28} className={style.headerText} />,
   };
 
   const isCollapsible = variant === 'red';
 
+  // Group items by category
+  const groupedItems = items.reduce((acc, item, index) => {
+    const category = item.category || '其他';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push({ item, index });
+    return acc;
+  }, {} as Record<string, Array<{ item: FoodItem; index: number }>>);
+
   return (
-    <div className={`rounded-xl border-2 overflow-hidden ${style.containerBg} ${style.containerBorder}`}>
-      <ZoneHeader
-        icon={icons[variant]}
-        title={title}
-        description={description}
-        bgColor={style.headerBg}
-        borderColor={style.headerBorder}
-        textColor={style.headerText}
-        isCollapsible={isCollapsible}
-        isExpanded={isExpanded}
-        onToggle={() => setIsExpanded(!isExpanded)}
-      />
+    <div className={`rounded-2xl border-2 overflow-hidden shadow-sm ${style.containerBg} ${style.containerBorder}`}>
+      <div className={`${style.headerBg} ${style.headerBorder}`}>
+        <ZoneHeader
+          icon={icons[variant]}
+          title={title}
+          description={description}
+          rationale={rationale}
+          bgColor=""
+          borderColor=""
+          textColor={style.headerText}
+          isCollapsible={isCollapsible}
+          isExpanded={isExpanded}
+          onToggle={() => setIsExpanded(!isExpanded)}
+          itemCount={items.length}
+        />
+      </div>
+
       {isExpanded && (
-        <div className="p-4 space-y-2">
-          {items.map((item, index) => (
-            <FoodListItem key={index} item={item} variant={variant} />
-          ))}
+        <div className="p-4 space-y-3">
+          {Object.keys(groupedItems).length > 1 ? (
+            // Display grouped by category
+            Object.entries(groupedItems).map(([category, items]) => (
+              <div key={category}>
+                <h4 className={`text-sm font-bold mb-2 flex items-center gap-2 ${
+                  variant === 'green' ? 'text-green-800' :
+                  variant === 'yellow' ? 'text-yellow-800' :
+                  'text-red-800'
+                }`}>
+                  <Sparkles size={16} />
+                  {category}
+                </h4>
+                <div className="space-y-2">
+                  {items.map(({ item, index }) => (
+                    <FoodListItem key={index} item={item} variant={variant} />
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            // Display flat if no categories
+            items.map((item, index) => (
+              <FoodListItem key={index} item={item} variant={variant} />
+            ))
+          )}
         </div>
       )}
     </div>
@@ -212,11 +322,28 @@ const ZoneSection: React.FC<ZoneSectionProps> = ({
 
 const TrafficLightGuide: React.FC<TrafficLightGuideProps> = ({ data }) => {
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-5">
+      {/* 211原则说明卡片 */}
+      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border-2 border-blue-200 dark:border-blue-800">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+            211
+          </div>
+          <div className="flex-1">
+            <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-2">基于211饮食原则的红绿灯食物指南</h4>
+            <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
+              红绿灯食物分类与您的健康指标直接相关。绿灯食物富含改善您当前异常指标的营养素，
+              建议作为每餐的主要选择；黄灯食物可适量食用，需注意控制份量；红灯食物会恶化您的指标，应严格避免。
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Green Zone - Always Expanded */}
       <ZoneSection
         title={data.green.title}
         description={data.green.description}
+        rationale={data.green.rationale}
         items={data.green.items}
         variant="green"
         defaultExpanded={true}
@@ -226,65 +353,23 @@ const TrafficLightGuide: React.FC<TrafficLightGuideProps> = ({ data }) => {
       <ZoneSection
         title={data.yellow.title}
         description={data.yellow.description}
+        rationale={data.yellow.rationale}
         items={data.yellow.items}
         variant="yellow"
         defaultExpanded={true}
       />
 
-      {/* Red Zone - Default Collapsed */}
+      {/* Red Zone - Default Expanded */}
       <ZoneSection
         title={data.red.title}
         description={data.red.description}
+        rationale={data.red.rationale}
         items={data.red.items}
         variant="red"
-        defaultExpanded={false}
+        defaultExpanded={true}
       />
     </div>
   );
 };
 
 export default TrafficLightGuide;
-
-// ==================== Default Data Example ====================
-
-export const defaultTrafficLightData: TrafficLightData = {
-  green: {
-    title: '🟢 绿灯食物 (随意吃)',
-    description: '富含营养素，有助于改善指标，建议日常食用',
-    items: [
-      { name: '燕麦', detail: '富含β-葡聚糖，可降低LDL胆固醇5-10%' },
-      { name: '菠菜/羽衣甘蓝', detail: '富含叶酸(194μg/100g)，有助于降低同型半胱氨酸' },
-      { name: '深海鱼(三文鱼、沙丁鱼)', detail: '富含Omega-3(EPA+DHA)，可降低甘油三酯20-30%' },
-      { name: '鹰嘴豆/扁豆', detail: '植物蛋白+可溶性纤维，富含叶酸172μg/100g' },
-      { name: '亚麻籽', detail: '富含ALA和可溶性纤维，每日15g磨粉食用' },
-      { name: '核桃', detail: 'Omega-3来源，每日15g(约6颗)' },
-      { name: '橄榄油', detail: '单不饱和脂肪，每日20ml替代其他油脂' },
-      { name: '牛油果', detail: '单不饱和脂肪+钾，有助于心血管健康' },
-    ],
-  },
-  yellow: {
-    title: '🟡 黄灯食物 (控制量)',
-    description: '可以食用，但需注意分量和食用时间',
-    items: [
-      { name: '坚果混合', limit: '≤15g/天', detail: '高热量，作为加餐10:00或15:00食用' },
-      { name: '全脂乳制品', limit: '≤200ml/天', detail: '饱和脂肪，早餐时优先选择低脂' },
-      { name: '瘦红肉', limit: '≤50g/天', detail: '饱和脂肪+胆固醇，优先选择鸡胸/鱼肉' },
-      { name: '鸡蛋', limit: '≤2个/周', detail: '胆固醇较高，早餐配蔬菜食用' },
-      { name: '根茎类蔬菜', limit: '≤150g/天', detail: '淀粉含量较高，替代部分主食' },
-      { name: '热带水果', limit: '≤100g/天', detail: '糖分/GI较高，运动后食用' },
-    ],
-  },
-  red: {
-    title: '🔴 红灯食物 (避免)',
-    description: '严格限制，对当前指标有负面影响',
-    items: [
-      { name: '动物内脏', reason: '高胆固醇+高嘌呤，显著升高LDL和尿酸' },
-      { name: '黄油/奶油', reason: '饱和脂肪含量>60%，直接升高LDL胆固醇' },
-      { name: '起酥面包/糕点', reason: '含反式脂肪酸+精制碳水，双重心血管风险' },
-      { name: '油炸食品', reason: '氧化脂肪+高热量，促进炎症反应' },
-      { name: '加工肉类', reason: '高钠+亚硝酸盐+饱和脂肪，增加高血压风险' },
-      { name: '含糖饮料', reason: '精制糖迅速升高甘油三酯，引起胰岛素抵抗' },
-      { name: '酒精', reason: '显著升高甘油三酯，干扰同型半胱氨酸代谢' },
-    ],
-  },
-};

@@ -4,7 +4,9 @@ import { useState, useEffect, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardNavbar from '@/components/layout/DashboardNavbar';
-import { Activity, Apple, Droplets, Heart, TrendingUp, TrendingDown, Minus, Edit3, Check, X } from 'lucide-react';
+import HealthSummaryCard from '@/components/analysis/HealthSummaryCard';
+import OCRDataDisplay from '@/components/analysis/OCRDataDisplay';
+import { Activity, Apple, Droplets, TrendingUp, TrendingDown, Minus, Edit3, Check, X } from 'lucide-react';
 
 function AnalysisDetailContent() {
   const params = useParams();
@@ -279,10 +281,10 @@ function AnalysisDetailContent() {
                       {getActivityLabel(client.activityLevel)}
                     </p>
                     <p className="text-xs text-zinc-500 mt-1">
-                      ×{activityLevel === 'SEDENTARY' ? '1.2' :
-                        activityLevel === 'LIGHT' ? '1.375' :
-                        activityLevel === 'MODERATE' ? '1.55' :
-                        activityLevel === 'ACTIVE' ? '1.725' : '1.9'}
+                      ×{client.activityLevel === 'SEDENTARY' ? '1.2' :
+                        client.activityLevel === 'LIGHT' ? '1.375' :
+                        client.activityLevel === 'MODERATE' ? '1.55' :
+                        client.activityLevel === 'ACTIVE' ? '1.725' : '1.9'}
                     </p>
                   </div>
                 </div>
@@ -325,16 +327,8 @@ function AnalysisDetailContent() {
               </div>
             )}
 
-            {/* 分析摘要 */}
-            {analysis?.summary && (
-              <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-800">
-                <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-red-500" />
-                  分析摘要
-                </h3>
-                <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">{analysis.summary}</p>
-              </div>
-            )}
+            {/* 分析摘要 - 使用新的结构化组件 */}
+            <HealthSummaryCard analysis={analysis || {}} />
 
             {/* 体检指标详情 */}
             {analysis?.indicators && analysis.indicators.length > 0 && (
@@ -470,20 +464,8 @@ function AnalysisDetailContent() {
               </div>
             )}
 
-            {/* OCR 提取数据 */}
-            {report.extractedData && (
-              <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-800">
-                <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-indigo-500" />
-                  OCR 提取原始数据
-                </h3>
-                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  <pre className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap font-mono">
-                    {JSON.stringify(report.extractedData, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            )}
+            {/* OCR 提取数据 - 使用新的可折叠组件 */}
+            <OCRDataDisplay extractedData={report.extractedData} fileName={report.fileName} />
           </div>
 
           {/* 右侧：客户信息和操作 */}

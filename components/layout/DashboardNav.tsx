@@ -1,18 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth';
+import { signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 
 export default function DashboardNav() {
-  const { logout } = useAuth();
   const pathname = usePathname();
+
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
+    window.location.href = '/login';
+  };
 
   const navItems = [
     { href: '/dashboard', label: '控制台' },
     { href: '/clients', label: '客户管理' },
-    { href: '/analysis', label: '报告分析' },
-    { href: '/recommendations', label: '建议管理' },
     { href: '/settings', label: '设置' },
   ];
 
@@ -37,7 +39,7 @@ export default function DashboardNav() {
             </Link>
           ))}
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="px-4 py-1.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
           >
             登出

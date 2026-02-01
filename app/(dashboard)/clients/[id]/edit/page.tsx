@@ -15,7 +15,10 @@ interface Client {
   activityLevel: 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'ACTIVE' | 'VERY_ACTIVE';
   allergies: string;
   medicalHistory: string;
+  healthConcerns?: string | null;
   preferences?: string | null;
+  userRequirements?: string | null;
+  exerciseDetails?: string | null;
   phone?: string | null;
   email?: string | null;
 }
@@ -39,7 +42,10 @@ export default function EditClientPage() {
     activityLevel: 'MODERATE' as 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'ACTIVE' | 'VERY_ACTIVE',
     allergies: '',
     medicalHistory: '',
+    healthConcerns: '',
     preferences: '',
+    userRequirements: '',
+    exerciseDetails: '',
     phone: '',
     email: '',
   });
@@ -59,9 +65,20 @@ export default function EditClientPage() {
 
       setClient(data.client);
 
-      // 解析过敏原和疾病史
-      const allergies = data.client.allergies ? JSON.parse(data.client.allergies).join(', ') : '';
-      const medicalHistory = data.client.medicalHistory ? JSON.parse(data.client.medicalHistory).join(', ') : '';
+      // 解析过敏原和疾病史（使用parseJsonArray函数）
+      const parseJsonArray = (jsonString: string | null | undefined): string => {
+        if (!jsonString || jsonString === '[]') return '';
+        try {
+          const parsed = JSON.parse(jsonString);
+          return Array.isArray(parsed) ? parsed.join(', ') : '';
+        } catch {
+          return '';
+        }
+      };
+
+      const allergies = parseJsonArray(data.client.allergies);
+      const medicalHistory = parseJsonArray(data.client.medicalHistory);
+      const healthConcerns = parseJsonArray(data.client.healthConcerns);
 
       setFormData({
         name: data.client.name,
@@ -72,7 +89,10 @@ export default function EditClientPage() {
         activityLevel: data.client.activityLevel,
         allergies,
         medicalHistory,
+        healthConcerns,
         preferences: data.client.preferences || '',
+        userRequirements: data.client.userRequirements || '',
+        exerciseDetails: data.client.exerciseDetails || '',
         phone: data.client.phone || '',
         email: data.client.email || '',
       });
@@ -104,7 +124,15 @@ export default function EditClientPage() {
             .map((s) => s.trim())
             .filter(Boolean)
         ),
+        healthConcerns: JSON.stringify(
+          formData.healthConcerns
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        ),
       };
+
+      console.log('[EDIT CLIENT] Submitting data:', submitData);
 
       const res = await fetch(`/api/clients/${clientId}`, {
         method: 'PUT',
@@ -113,6 +141,7 @@ export default function EditClientPage() {
       });
 
       const data = await res.json();
+      console.log('[EDIT CLIENT] Response:', res.status, data);
 
       if (!res.ok) {
         throw new Error(data.error || '更新客户失败');
@@ -310,6 +339,19 @@ export default function EditClientPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    其他健康问题（用逗号分隔）
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.healthConcerns}
+                    onChange={(e) => setFormData({ ...formData, healthConcerns: e.target.value })}
+                    placeholder="例如：失眠、便秘、关节疼痛、消化不良"
+                    className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                     饮食偏好
                   </label>
                   <input
@@ -319,6 +361,35 @@ export default function EditClientPage() {
                     placeholder="例如：素食、清真、低碳水"
                     className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    用户需求
+                  </label>
+                  <textarea
+                    value={formData.userRequirements}
+                    onChange={(e) => setFormData({ ...formData, userRequirements: e.target.value })}
+                    placeholder="例如：减重10斤、增肌、改善睡眠质量、提升精力、改善便秘、降低血压等"
+                    rows={3}
+                    className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    运动详情（可选）
+                  </label>
+                  <textarea
+                    value={formData.exerciseDetails}
+                    onChange={(e) => setFormData({ ...formData, exerciseDetails: e.target.value })}
+                    placeholder="例如：&#10;- 器材：哑铃5kgx2、弹力带、瑜伽垫&#10;- 环境：居家锻炼，客厅约15平米&#10;- 经验：健身小白，偶尔做瑜伽&#10;- 目标：希望在家锻炼为主"
+                    rows={5}
+                    className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800"
+                  />
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    请描述客户现有的运动器材、锻炼环境（健身房/居家）、运动经验和基础。这将帮助生成更精准的训练计划。
+                  </p>
                 </div>
               </div>
             </div>

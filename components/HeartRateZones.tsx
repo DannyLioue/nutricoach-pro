@@ -297,20 +297,3 @@ const HeartRateZones: React.FC<HeartRateZonesProps> = ({
 };
 
 export default HeartRateZones;
-
-// ==================== Default Data Example ====================
-
-export const defaultHeartRateData: HeartRateData = {
-  age: 39,
-  restingHr: 70,
-  maxHr: 181, // 220 - 39
-  recommendedZone: {
-    name: 'Zone 2 - 燃脂区间',
-    minBpm: 137,
-    maxBpm: 148,
-    color: 'bg-blue-100 dark:bg-blue-900/30',
-    textColor: 'text-blue-800 dark:text-blue-200',
-    description: '最佳减脂强度，能够完整对话但略微气喘',
-    icon: <Zap size={18} />,
-  },
-};

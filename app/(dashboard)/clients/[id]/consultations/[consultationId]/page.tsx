@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, AlertCircle, Loader2, MessageSquare, Image as ImageIcon, Mic, CheckCircle2, Sparkles, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Calendar, AlertCircle, Loader2, MessageSquare, Image as ImageIcon, FileText, CheckCircle2, Sparkles, ChevronDown, ChevronUp, RotateCw } from 'lucide-react';
 import type { Consultation } from '@/types';
 
 export default function ConsultationDetailPage({
@@ -17,7 +17,8 @@ export default function ConsultationDetailPage({
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedTranscripts, setExpandedTranscripts] = useState<Set<string>>(new Set());
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [expandedTextFiles, setExpandedTextFiles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     params.then(p => {
@@ -54,6 +55,7 @@ export default function ConsultationDetailPage({
 
     setAnalyzing(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await fetch(`/api/clients/${clientId}/consultations/${consultationId}/analyze`, {
         method: 'POST',
@@ -61,7 +63,11 @@ export default function ConsultationDetailPage({
       const data = await res.json();
       if (res.ok) {
         // 重新获取咨询记录
-        await fetchConsultation(clientId, consultationId);
+        await fetchConsultation(clientId, consultationId, true);
+        // 检查更新后的consultation状态
+        setSuccessMessage(consultation?.analysis ? '分析已更新' : '分析完成');
+        // 3秒后隐藏成功消息
+        setTimeout(() => setSuccessMessage(null), 3000);
       } else {
         setError(data.error || 'AI分析失败');
       }
@@ -72,72 +78,15 @@ export default function ConsultationDetailPage({
     }
   };
 
-  const handleRetranscribe = async (audioId: string) => {
-    if (!clientId || !consultationId) {
-      console.error('[Retranscribe] Missing clientId or consultationId');
-      return;
-    }
-
-    console.log('[Retranscribe] Starting re-transcription for audio:', audioId);
-    setError(null);
-    try {
-      const url = `/api/clients/${clientId}/consultations/${consultationId}/audio/${audioId}/retranscribe`;
-      console.log('[Retranscribe] Fetching:', url);
-
-      const res = await fetch(url, {
-        method: 'POST',
-      });
-
-      console.log('[Retranscribe] Response status:', res.status);
-
-      const data = await res.json();
-      console.log('[Retranscribe] Response data:', data);
-
-      if (res.ok) {
-        console.log('[Retranscribe] Success, refreshing consultation data');
-        // 重新获取咨询记录
-        await fetchConsultation(clientId, consultationId);
-      } else {
-        console.error('[Retranscribe] Failed:', data.error);
-        setError(data.error || '重新转录失败');
-      }
-    } catch (err) {
-      console.error('[Retranscribe] Exception:', err);
-      setError('重新转录失败，请重试');
-    }
-  };
-
-  const toggleTranscript = (audioId: string) => {
-    const newExpanded = new Set(expandedTranscripts);
-    if (newExpanded.has(audioId)) {
-      newExpanded.delete(audioId);
+  const toggleTextFile = (textFileId: string) => {
+    const newExpanded = new Set(expandedTextFiles);
+    if (newExpanded.has(textFileId)) {
+      newExpanded.delete(textFileId);
     } else {
-      newExpanded.add(audioId);
+      newExpanded.add(textFileId);
     }
-    setExpandedTranscripts(newExpanded);
+    setExpandedTextFiles(newExpanded);
   };
-
-  // 自动轮询更新状态（用于转录中/分析中的状态）
-  useEffect(() => {
-    if (!consultation) return;
-
-    const hasProcessing = consultation.audioFiles?.some(
-      audio => audio.transcriptionStatus === 'transcribing' || audio.transcriptionStatus === 'pending'
-    );
-
-    if (hasProcessing) {
-      console.log('[Auto-refresh] Starting auto-refresh for processing status');
-      const interval = setInterval(() => {
-        console.log('[Auto-refresh] Refreshing consultation data');
-        fetchConsultation(clientId, consultationId, true); // 使用静默更新
-      }, 3000); // 每3秒刷新一次
-
-      return () => {
-        console.log('[Auto-refresh] Stopping auto-refresh');
-        clearInterval(interval);
-      };
-    }
-  }, [consultation, clientId, consultationId]);
 
   if (!clientId || !consultationId) {
     return (
@@ -210,43 +159,56 @@ export default function ConsultationDetailPage({
                 <Calendar size={14} />
                 {new Date(consultation.consultationDate).toLocaleDateString('zh-CN')}
               </div>
-              {consultation.audioFiles && consultation.audioFiles.length > 0 && (
-                <span className="text-gray-600">🎙️ {consultation.audioFiles.length} 个音频</span>
+              {consultation.textFiles && consultation.textFiles.length > 0 && (
+                <span className="text-gray-600">📄 {consultation.textFiles.length} 个文本文件</span>
               )}
               {consultation.images && consultation.images.length > 0 && (
                 <span className="text-gray-600">📷 {consultation.images.length} 张图片</span>
               )}
             </div>
           </div>
-          {!consultation.analysis && (
+        </div>
+      </div>
+
+      {/* 成功提示 */}
+      {successMessage && (
+        <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top">
+          <CheckCircle2 size={20} className="text-emerald-600 flex-shrink-0" />
+          <p className="text-emerald-800 font-medium">{successMessage}</p>
+        </div>
+      )}
+
+      {/* AI分析区域 */}
+      {consultation.analysis ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={20} className="text-blue-600" />
+              <h3 className="text-lg font-semibold text-blue-900">AI分析结果</h3>
+            </div>
             <button
               onClick={handleAnalyze}
               disabled={analyzing}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {analyzing ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2 size={16} className="animate-spin" />
                   分析中...
                 </>
               ) : (
                 <>
-                  <Sparkles size={18} />
-                  AI分析
+                  <RotateCw size={16} />
+                  重新分析
                 </>
               )}
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* AI分析结果 */}
-      {consultation.analysis && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 size={20} className="text-blue-600" />
-            <h3 className="text-lg font-semibold text-blue-900">AI分析结果</h3>
           </div>
+          {consultation.analyzedAt && (
+            <div className="text-xs text-blue-600 mb-3">
+              最后分析: {new Date(consultation.analyzedAt).toLocaleString('zh-CN')}
+            </div>
+          )}
           <div className="space-y-4 text-sm">
             <div>
               <h4 className="font-medium text-blue-900 mb-1">总结</h4>
@@ -286,6 +248,32 @@ export default function ConsultationDetailPage({
             )}
           </div>
         </div>
+      ) : (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles size={20} className="text-blue-600" />
+              <h3 className="text-lg font-semibold text-blue-900">暂无AI分析</h3>
+            </div>
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {analyzing ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  分析中...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={18} />
+                  AI分析
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* 咨询内容 */}
@@ -298,106 +286,42 @@ export default function ConsultationDetailPage({
         )}
       </div>
 
-      {/* 音频文件 */}
-      {consultation.audioFiles && consultation.audioFiles.length > 0 && (
+      {/* 文本文件 */}
+      {consultation.textFiles && consultation.textFiles.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-5 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Mic size={18} />
-            音频文件 ({consultation.audioFiles.length})
-            {consultation.audioFiles.some(a => a.transcriptionStatus === 'transcribing' || a.transcriptionStatus === 'pending') && (
-              <span className="ml-2 text-sm text-blue-600 flex items-center gap-1">
-                <Loader2 size={14} className="animate-spin" />
-                处理中...
-              </span>
-            )}
+            <FileText size={18} />
+            文本文件 ({consultation.textFiles.length})
           </h3>
           <div className="space-y-3">
-            {consultation.audioFiles.map((audio) => {
-              const isExpanded = expandedTranscripts.has(audio.id);
-              const hasTranscript = audio.transcript || audio.structuredTranscript;
+            {consultation.textFiles.map((textFile) => {
+              const isExpanded = expandedTextFiles.has(textFile.id);
 
               return (
-                <div key={audio.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                  {/* 音频信息和播放器 */}
-                  <div className="p-3 bg-gray-50">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900">{audio.fileName}</span>
-                      <div className="flex items-center gap-2">
-                        {audio.transcriptionStatus === 'completed' && (
-                          <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700 flex items-center gap-1">
-                            <CheckCircle2 size={12} />
-                            已转录
-                          </span>
-                        )}
-                        {audio.transcriptionStatus === 'transcribing' && (
-                          <span className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-700 flex items-center gap-1">
-                            <Loader2 size={12} className="animate-spin" />
-                            转录中
-                          </span>
-                        )}
-                        {audio.transcriptionStatus === 'pending' && (
-                          <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">
-                            等待中
-                          </span>
-                        )}
-                        {audio.transcriptionStatus === 'failed' && (
-                          <button
-                            onClick={() => handleRetranscribe(audio.id)}
-                            className="px-3 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                          >
-                            <RefreshCw size={12} />
-                            重新转录
-                          </button>
-                        )}
-                      </div>
+                <div key={textFile.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* 文件信息 */}
+                  <div className="p-3 bg-gray-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText size={16} className="text-blue-600" />
+                      <span className="text-sm font-medium text-gray-900">{textFile.fileName}</span>
+                      <span className="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700 uppercase">
+                        {textFile.fileType}
+                      </span>
                     </div>
-                    <audio src={audio.audioUrl} controls className="w-full" />
+                    <button
+                      onClick={() => toggleTextFile(textFile.id)}
+                      className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                    >
+                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
                   </div>
 
-                  {/* 转录文本（可折叠） */}
-                  {hasTranscript && (
-                    <div className="border-t border-gray-200">
-                      <button
-                        onClick={() => toggleTranscript(audio.id)}
-                        className="w-full px-3 py-2 flex items-center justify-between text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <span className="flex items-center gap-2">
-                          <MessageSquare size={14} />
-                          转录文本
-                        </span>
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </button>
-
-                      {isExpanded && (
-                        <div className="px-3 pb-3 border-t border-gray-100">
-                          {/* 结构化对话 */}
-                          {audio.structuredTranscript && audio.structuredTranscript.length > 0 && (
-                            <div className="mb-3 p-3 bg-blue-50 rounded border border-blue-200">
-                              <p className="text-xs font-medium text-blue-700 mb-2">结构化对话</p>
-                              <div className="space-y-2">
-                                {audio.structuredTranscript.map((line, i) => (
-                                  <div key={i} className="flex gap-2">
-                                    <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
-                                      line.speaker === 'nutritionist' ? 'bg-blue-200 text-blue-800' : 'bg-emerald-200 text-emerald-800'
-                                    }`}>
-                                      {line.speaker === 'nutritionist' ? '营养师' : '客户'}
-                                    </span>
-                                    <span className="text-sm text-gray-800">{line.text}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 原始转录文本 */}
-                          {audio.transcript && (
-                            <div className="p-3 bg-gray-50 rounded border border-gray-200">
-                              <p className="text-xs font-medium text-gray-600 mb-1">原始文本</p>
-                              <p className="text-sm text-gray-800 whitespace-pre-wrap">{audio.transcript}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                  {/* 文件内容（可折叠） */}
+                  {isExpanded && textFile.content && (
+                    <div className="p-3 bg-white border-t border-gray-200">
+                      <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono bg-gray-50 p-3 rounded border border-gray-200 max-h-96 overflow-y-auto">
+                        {textFile.content}
+                      </pre>
                     </div>
                   )}
                 </div>

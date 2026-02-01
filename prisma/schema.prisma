@@ -30,13 +30,27 @@ model Client {
   height           Float
   weight           Float
   activityLevel    ActivityLevel
-  allergies        String   // JSON string array
-  medicalHistory   String   // JSON string array
+  allergies        String   @default("[]") // JSON string array
+  medicalHistory   String   @default("[]") // JSON string array
+  healthConcerns   String   @default("[]") // JSON string array - 其他健康问题
   preferences      String?
+  userRequirements String?  // 用户需求（如：减重、增肌、改善睡眠、提升精力等）
+  exerciseDetails  String?  // 运动详情（器材、环境、经验等）
   phone            String?
   email            String?
+
+  // 饮食分析相关字段
+  dietAnalysis     String?  // JSON格式，汇总所有饮食照片的分析结果
+  dietPreferences  String?  // JSON格式，结构化的饮食偏好
+  eatingHabits     String?  // JSON格式，结构化的饮食习惯
+
   reports          Report[]
   recommendations  Recommendation[]
+  dietPhotos       DietPhoto[]
+  mealGroups       DietPhotoMealGroup[]
+  consultations    Consultation[]
+  planEvaluations  PlanEvaluation[]
+  weeklySummaries  WeeklyDietSummary[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -89,4 +103,136 @@ enum RecType {
   EXERCISE
   LIFESTYLE
   COMPREHENSIVE
+}
+
+model DietPhoto {
+  id               String   @id @default(cuid())
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  mealGroupId      String?
+  mealGroup        DietPhotoMealGroup? @relation(fields: [mealGroupId], references: [id], onDelete: Cascade)
+
+  // 照片信息
+  imageUrl         String   // Base64编码的图片数据
+  uploadedAt       DateTime @default(now())
+  mealType         String?  // 早餐/午餐/晚餐/加餐（可选，用户可标注）
+  notes            String?  // 用户备注（可选）
+
+  // AI分析结果
+  analysis         String?  // JSON格式的分析结果
+  analyzedAt       DateTime? // 分析时间
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([mealGroupId])
+}
+
+// 饮食照片组（多张照片组成一餐/一天）
+model DietPhotoMealGroup {
+  id                String   @id @default(cuid())
+  clientId          String
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  photos            DietPhoto[]
+
+  // 组信息
+  name              String   // 如"早餐"、"午餐"、"晚餐"或自定义名称
+  date              String   // YYYY-MM-DD格式
+  mealType          String?  // 早餐/午餐/晚餐/加餐/全天
+
+  // AI 综合分析结果
+  combinedAnalysis  String?  // JSON格式的综合分析结果（包含所有照片的汇总）
+  totalScore        Int?     // 综合评分（0-100）
+  overallRating     String?  // 综合评级（优秀/良好/一般/需改善）
+
+  notes             String?  // 用户备注
+  textDescription   String?  // 食物文字描述（当没有照片时使用）
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([date])
+}
+
+// 咨询记录
+model Consultation {
+  id               String   @id @default(cuid())
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // 基本信息
+  consultationDate DateTime @default(now())
+  consultationType String
+  sessionNotes     String?  // 手动记录的文字笔记
+
+  // 多媒体内容
+  images           String?  // JSON格式，存储图片Base64数组
+  textFiles        String?  // JSON格式，存储上传的文本文件信息（txt, md, doc, docx）
+
+  // AI分析结果（结构化JSON）
+  analysis         String?  // ConsultationAnalysis JSON
+  analyzedAt       DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([consultationDate])
+}
+
+// 营养师计划评估
+model PlanEvaluation {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // 原始计划
+  planType        String   @default("diet") // diet 或 exercise
+  fileName        String
+  fileType        String   // txt/md/docx
+  originalContent String   // 原始文本内容
+  extractedData   Json?    // AI 提取的结构化数据
+
+  // 评估结果
+  evaluation      Json     // 评估结果（安全/需调整/不安全）
+  concerns        Json     // 具体问题列表
+  suggestions     Json     // 调整建议
+
+  // AI 优化后的计划
+  optimizedPlan   Json?    // 优化后的完整计划（结构化数据）
+
+  // 元数据
+  createdAt       DateTime @default(now())
+
+  @@index([clientId])
+  @@index([clientId, planType])
+}
+
+// 周饮食汇总
+model WeeklyDietSummary {
+  id               String   @id @default(cuid())
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // 周信息
+  weekStartDate    String   // 周一日期 YYYY-MM-DD
+  weekEndDate      String   // 周日日期 YYYY-MM-DD
+  weekNumber       Int      // 年内周序号 (1-52)
+  year             Int      // 年份
+
+  // 关联数据
+  mealGroupIds     String   // JSON数组: 本周包含的食谱组ID列表
+
+  // AI分析结果 (结构化JSON)
+  summary          String   // WeeklyDietSummary JSON
+
+  // 元数据
+  recommendationId String?  // 依据的推荐方案ID (引用recommendation表)
+  generatedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([clientId, weekStartDate])
+  @@unique([clientId, weekStartDate]) // 每周只能有一个汇总
 }

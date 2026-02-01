@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardNavbar from '@/components/layout/DashboardNavbar';
@@ -17,6 +17,7 @@ function AnalysisEditContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [useExisting, setUseExisting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     fetchReport();
@@ -55,6 +56,60 @@ function AnalysisEditContent() {
       setUseExisting(false);
     }
   };
+
+  const processFile = useCallback((droppedFile: File) => {
+    // 验证文件类型
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
+    if (!validTypes.includes(droppedFile.type) && !droppedFile.name.toLowerCase().endsWith('.pdf')) {
+      setError('不支持的文件格式，请上传 PNG, JPG 或 PDF 文件');
+      return;
+    }
+
+    // 验证文件大小 (10MB)
+    if (droppedFile.size > 10 * 1024 * 1024) {
+      setError('文件大小超过 10MB');
+      return;
+    }
+
+    setFile(droppedFile);
+    setError('');
+    setUseExisting(false);
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  }, [processFile]);
 
   const handleReanalyze = async () => {
     if (!useExisting && !file) {
@@ -273,7 +328,17 @@ function AnalysisEditContent() {
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                 上传新的体检报告 *
               </label>
-              <div className="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-zinc-300 dark:border-zinc-700 border-dashed rounded-lg hover:border-emerald-500 dark:hover:border-emerald-500 transition-colors">
+              <div
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-lg transition-colors ${
+                  isDragging
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                    : 'border-zinc-300 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500'
+                }`}
+              >
                 <div className="space-y-2 text-center">
                   <div className="text-4xl">📄</div>
                   <div className="flex text-sm text-zinc-600 dark:text-zinc-400">

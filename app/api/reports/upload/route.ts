@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
+
+// 设置 @ai-sdk/google 需要的环境变量
+process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,8 +65,7 @@ export async function POST(request: NextRequest) {
     // 使用 Gemini AI 分析报告
     let analysis;
     try {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+      const model = google('gemini-2.5-flash');
 
       // 构建提示词
       const prompt = `你是一个专业的营养师和健康分析师。请分析这张体检报告图片，提取所有关键健康指标。
@@ -97,18 +100,24 @@ export async function POST(request: NextRequest) {
 请仔细分析图片中的所有数据，给出专业的评估和建议。`;
 
       // 调用 Gemini API
-      const result = await model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            data: fileBase64,
-            mimeType: fileType,
+      const { text } = await generateText({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: prompt,
+              },
+              {
+                type: 'image',
+                image: fileDataUrl,
+              },
+            ],
           },
-        },
-      ]);
-
-      const response = await result.response;
-      const text = response.text();
+        ],
+      });
 
       // 尝试解析 JSON
       try {

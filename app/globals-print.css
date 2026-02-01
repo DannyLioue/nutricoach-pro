@@ -1,0 +1,469 @@
+/**
+ * 打印/PDF导出专用样式
+ * 解决浏览器打印时的排版崩坏问题
+ */
+
+@media print {
+  /* ==================== 全局设置 ==================== */
+
+  * {
+    /* 强制渲染背景色与边框 */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    /* 重置布局容器 */
+    height: auto !important;
+    max-height: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+
+    /* 确保背景色被打印 */
+    background-color: #ffffff !important;
+
+    /* 字体设置 */
+    font-size: 11pt;
+    line-height: 1.3;
+  }
+
+  /* ==================== 隐藏无关UI元素 ==================== */
+  .no-print,
+  nav,
+  header nav,
+  button,
+  button[onclick],
+  [role="navigation"],
+  .DashboardNavbar,
+  .RecommendationNav,
+  .fixed,
+  .sticky {
+    display: none !important;
+  }
+
+  /* 隐藏移动端浮动按钮 */
+  .fixed.bottom-6,
+  .fixed.right-6 {
+    display: none !important;
+  }
+
+  /* 隐藏遮罩层 */
+  [class*="bg-black"] {
+    display: none !important;
+  }
+
+  /* ==================== 强制展开可折叠内容 ==================== */
+  details > summary {
+    display: none !important;
+  }
+  details > * {
+    display: block !important;
+  }
+
+  /* 确保所有section内容可见 */
+  [data-section-id] > div:last-child {
+    display: block !important;
+  }
+
+  /* ==================== 布局调整 ==================== */
+
+  /* 主容器调整 */
+  main,
+  .max-w-7xl {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Flex布局改为块级 */
+  .flex {
+    display: block !important;
+  }
+
+  .flex.gap-8 > * {
+    margin-bottom: 1rem !important;
+  }
+
+  /* 左侧导航隐藏，只显示内容 */
+  aside,
+  [class*="w-64"] {
+    display: none !important;
+  }
+
+  .flex-1 {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Grid布局保持（用于卡片） */
+  div[class*="grid-cols-"] {
+    display: grid !important;
+    gap: 0.5rem !important;
+  }
+
+  /* 2列网格 */
+  [class*="md:grid-cols-2"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* 3列网格 */
+  [class*="md:grid-cols-3"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* ==================== 颜色强制（避免深色模式打印问题） ==================== */
+
+  /* 背景色强制为白色或浅色 */
+  .bg-white,
+  .bg-zinc-50,
+  .bg-zinc-100,
+  .bg-zinc-900,
+  .bg-green-50,
+  .bg-blue-50,
+  .bg-amber-50,
+  .bg-purple-50,
+  .bg-red-50,
+  .bg-yellow-50,
+  .bg-pink-50,
+  .bg-orange-50,
+  .bg-emerald-50,
+  .bg-gradient-to-r,
+  [class*="dark:bg-"] {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* 边框色 */
+  .border-zinc-200,
+  .border-zinc-800,
+  .border-green-200,
+  .border-blue-200,
+  .border-amber-200,
+  .border-purple-200,
+  .border-red-200,
+  .border-yellow-200,
+  [class*="dark:border-"] {
+    border-color: #d1d5db !important;
+  }
+
+  /* 文字颜色强制为深色 */
+  .text-white,
+  .text-zinc-100,
+  .text-zinc-300,
+  .text-zinc-400,
+  .text-zinc-500,
+  .text-zinc-600,
+  .text-zinc-700,
+  .text-zinc-800,
+  .text-zinc-900,
+  .text-green-100,
+  .text-green-200,
+  .text-green-700,
+  .text-green-800,
+  .text-green-900,
+  .text-blue-100,
+  .text-blue-200,
+  .text-blue-700,
+  .text-blue-800,
+  .text-blue-900,
+  .text-amber-100,
+  .text-amber-200,
+  .text-amber-700,
+  .text-amber-800,
+  .text-amber-900,
+  .text-purple-100,
+  .text-purple-200,
+  .text-purple-700,
+  .text-purple-800,
+  .text-purple-900,
+  .text-red-100,
+  .text-red-200,
+  .text-red-700,
+  .text-red-800,
+  .text-red-900,
+  .text-pink-100,
+  .text-pink-200,
+  .text-pink-700,
+  .text-pink-800,
+  .text-pink-900,
+  .text-orange-100,
+  .text-orange-200,
+  .text-orange-700,
+  .text-orange-800,
+  .text-orange-900,
+  .text-emerald-100,
+  .text-emerald-200,
+  .text-emerald-700,
+  .text-emerald-800,
+  .text-emerald-900,
+  [class*="dark:text-"] {
+    color: #1f2937 !important;
+  }
+
+  /* 特定颜色保留（用于红绿灯系统） */
+  .text-green-600,
+  .text-emerald-600 {
+    color: #059669 !important;
+  }
+
+  .text-yellow-600,
+  .text-amber-600 {
+    color: #d97706 !important;
+  }
+
+  .text-red-600,
+  .text-rose-600 {
+    color: #dc2626 !important;
+  }
+
+  .text-blue-600 {
+    color: #2563eb !important;
+  }
+
+  /* ==================== 卡片样式优化 ==================== */
+
+  /* 确保卡片有边框 */
+  .rounded-xl,
+  .rounded-lg {
+    border-radius: 8px !important;
+    border: 1px solid #d1d5db !important;
+    padding: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+    break-inside: avoid;
+  }
+
+  /* ==================== 防止元素被截断 ==================== */
+  .space-y-3 > *,
+  .space-y-4 > *,
+  .space-y-6 > * {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  div,
+  section,
+  table tr,
+  li {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  h1, h2, h3, h4, h5, h6,
+  p {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    orphans: 2;
+    widows: 2;
+  }
+
+  /* ==================== 分页控制 ==================== */
+
+  h1, h2 {
+    page-break-after: avoid;
+    margin-top: 1rem;
+  }
+
+  h3, h4 {
+    margin-top: 0.75rem;
+  }
+
+  /* ==================== 页面设置 ==================== */
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+
+  /* ==================== 字体大小调整 ==================== */
+  h1 {
+    font-size: 16pt !important;
+    margin-bottom: 0.5rem;
+  }
+
+  h2 {
+    font-size: 14pt !important;
+    margin-bottom: 0.4rem;
+  }
+
+  h3 {
+    font-size: 12pt !important;
+    margin-bottom: 0.3rem;
+  }
+
+  h4 {
+    font-size: 11pt !important;
+    margin-bottom: 0.2rem;
+  }
+
+  p, li, span, div {
+    font-size: 10pt !important;
+  }
+
+  /* ==================== 图片控制 ==================== */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* ==================== 特定组件样式 ==================== */
+
+  /* 红绿灯食物指南 */
+  .TrafficLightGuide,
+  [class*="traffic-light"] {
+    page-break-inside: avoid;
+  }
+
+  /* 概览卡片 */
+  .RecommendationOverview {
+    page-break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+
+  /* ==================== 红绿灯食物区域样式优化 ==================== */
+  
+  /* 绿灯区域 */
+  [class*="from-green"][class*="to-emerald"],
+  [class*="bg-green-50"] {
+    background-color: #f0fdf4 !important;
+    border: 2px solid #86efac !important;
+  }
+
+  [class*="bg-green-100"],
+  [class*="from-green-100"] {
+    background-color: #dcfce7 !important;
+  }
+
+  [class*="border-green-300"] {
+    border-color: #86efac !important;
+  }
+
+  /* 黄灯区域 */
+  [class*="from-yellow"][class*="to-amber"],
+  [class*="bg-yellow-50"] {
+    background-color: #fffbeb !important;
+    border: 2px solid #fcd34d !important;
+  }
+
+  [class*="bg-yellow-100"],
+  [class*="from-yellow-100"] {
+    background-color: #fef3c7 !important;
+  }
+
+  [class*="border-yellow-300"] {
+    border-color: #fcd34d !important;
+  }
+
+  /* 红灯区域 */
+  [class*="from-red"][class*="to-rose"],
+  [class*="bg-red-50"] {
+    background-color: #fef2f2 !important;
+    border: 2px solid #fca5a5 !important;
+  }
+
+  [class*="bg-red-100"],
+  [class*="from-red-100"] {
+    background-color: #fee2e2 !important;
+  }
+
+  [class*="border-red-300"] {
+    border-color: #fca5a5 !important;
+  }
+
+  /* 食物卡片样式 */
+  [class*="bg-white/80"] {
+    background-color: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* 标签样式 */
+  [class*="bg-green-100"][class*="text-green"],
+  [class*="bg-yellow-100"][class*="text-yellow"],
+  [class*="bg-red-100"][class*="text-red"],
+  [class*="bg-blue-100"][class*="text-blue"],
+  [class*="bg-emerald-100"] {
+    border: 1px solid currentColor !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+  }
+
+  /* 211原则说明卡片 */
+  [class*="from-blue-50"][class*="to-indigo-50"],
+  [class*="bg-blue-50"] {
+    background-color: #eff6ff !important;
+    border: 2px solid #bfdbfe !important;
+  }
+
+  /* 圆形餐盘可视化 */
+  [class*="aspect-square"][class*="rounded-full"] {
+    page-break-inside: avoid !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* 按钮隐藏 */
+  button,
+  [onclick],
+  [role="button"] {
+    display: none !important;
+  }
+
+  /* Badge样式 */
+  [class*="px-2"][class*="py-0"] {
+    border: 1px solid #d1d5db !important;
+    padding: 2px 6px !important;
+  }
+
+  /* 图标隐藏 */
+  svg,
+  .lucide {
+    display: none !important;
+  }
+
+  /* ==================== 针对干预方案页面的特殊处理 ==================== */
+
+  /* 隐藏导航sidebar */
+  aside[class*="w-64"] {
+    display: none !important;
+  }
+
+  /* 主内容区占满宽度 */
+  .flex.gap-8 > .flex-1 {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  /* CollapsibleSection header 在打印时不要可点击样式 */
+  button[aria-label*="展开"],
+  button[aria-label*="收起"] {
+    display: none !important;
+  }
+
+  /* 强制显示所有折叠内容 */
+  [data-section-id] > div:last-child {
+    display: block !important;
+  }
+
+  /* ==================== 打印时展开所有折叠区域 ==================== */
+
+  /* 移除折叠动画相关样式 */
+  [class*="transition-"],
+  [class*="duration-"] {
+    transition: none !important;
+  }
+
+  /* ==================== Footer信息 ==================== */
+
+  /* 页脚添加生成时间 */
+  main::after {
+    content: "生成时间: " attr(data-generated);
+    display: block;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #d1d5db;
+    font-size: 9pt;
+    color: #6b7280;
+  }
+}
