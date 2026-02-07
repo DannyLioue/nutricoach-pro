@@ -978,3 +978,26 @@ export interface WeeklyDietSummaryContent {
   };
 }
 
+// ==================== 任务进度跟踪类型 ====================
+// 用于断点续传功能
+
+export type {
+  TaskType,
+  TASK_STEPS,
+  WeeklySummaryTaskParameters,
+  WeeklySummaryIntermediateData,
+  WeeklySummaryResultData,
+  TaskParameters,
+  TaskIntermediateData,
+  TaskResultData,
+  TaskProgressResponse,
+  TaskSSEEventType,
+  TaskSSEEvent,
+  StepProgress,
+  TaskCreateResponse,
+  TaskStatusResponse,
+  TaskOperationResponse,
+  TaskOptions,
+} from './task-progress';
+
+export { TaskStatus } from './task-progress';

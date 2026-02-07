@@ -16,6 +16,13 @@ model User {
   password      String?   // 密码哈希
   role          Role      @default(NUTRITIONIST)
   clients       Client[]
+
+  // AI Configuration
+  aiConfigs        AIModelConfig[]
+  aiKeys           UserAIKey[]
+  defaultProvider  String?   // Default provider ID
+  useEnvFallback   Boolean   @default(true)  // Use environment keys if no user key configured
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -51,6 +58,7 @@ model Client {
   consultations    Consultation[]
   planEvaluations  PlanEvaluation[]
   weeklySummaries  WeeklyDietSummary[]
+  taskProgress     TaskProgress[]  // 任务进度跟踪
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -103,6 +111,16 @@ enum RecType {
   EXERCISE
   LIFESTYLE
   COMPREHENSIVE
+}
+
+// 任务状态枚举（用于断点续传）
+enum TaskStatus {
+  PENDING       // 待执行（已创建但未开始）
+  RUNNING       // 执行中
+  PAUSED        // 已暂停
+  COMPLETED     // 已完成
+  FAILED        // 失败
+  CANCELLED     // 已取消
 }
 
 model DietPhoto {
@@ -209,20 +227,28 @@ model PlanEvaluation {
   @@index([clientId, planType])
 }
 
-// 周饮食汇总
+// 饮食汇总 (支持自定义日期范围，最多7天)
 model WeeklyDietSummary {
   id               String   @id @default(cuid())
   clientId         String
   client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  // 周信息
-  weekStartDate    String   // 周一日期 YYYY-MM-DD
-  weekEndDate      String   // 周日日期 YYYY-MM-DD
-  weekNumber       Int      // 年内周序号 (1-52)
-  year             Int      // 年份
+  // 原有周信息字段 (保留向后兼容)
+  weekStartDate    String?  // 周一日期 YYYY-MM-DD (可选，用于周汇总)
+  weekEndDate      String?  // 周日日期 YYYY-MM-DD
+  weekNumber       Int?     // 年内周序号 (1-52)
+  year             Int?     // 年份
+
+  // 新增：自定义日期范围字段
+  startDate        String   @default("") // 汇总开始日期 YYYY-MM-DD
+  endDate          String   @default("") // 汇总结束日期 YYYY-MM-DD (最多7天)
+
+  // 新增：汇总名称和类型
+  summaryName      String?  // 用户自定义的汇总名称，如"第一周汇总"、"春节假期饮食"等
+  summaryType      String   @default("week") // 汇总类型: "week"(周), "custom"(自定义)
 
   // 关联数据
-  mealGroupIds     String   // JSON数组: 本周包含的食谱组ID列表
+  mealGroupIds     String   // JSON数组: 包含的食谱组ID列表
 
   // AI分析结果 (结构化JSON)
   summary          String   // WeeklyDietSummary JSON
@@ -233,6 +259,137 @@ model WeeklyDietSummary {
   updatedAt        DateTime @updatedAt
 
   @@index([clientId])
-  @@index([clientId, weekStartDate])
-  @@unique([clientId, weekStartDate]) // 每周只能有一个汇总
+  @@index([clientId, startDate])
+  @@index([clientId, startDate, endDate])
+  // 移除唯一约束，允许多个汇总
+}
+
+// ========================================
+// AI Configuration Models
+// ========================================
+
+// AI Provider (Google, OpenAI, Anthropic, etc.)
+model AIProvider {
+  id          String   @id @default(cuid())
+  name        String   @unique // "google", "openai", "anthropic"
+  displayName String   // "Google Gemini", "OpenAI GPT"
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  models      AIModel[]
+  userKeys    UserAIKey[]
+}
+
+// AI Model (gemini-2.5-pro, gpt-4o, etc.)
+model AIModel {
+  id              String      @id @default(cuid())
+  providerId      String
+  provider        AIProvider  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  modelId         String      // "gemini-2.5-pro", "gpt-4o"
+  displayName     String      // "Gemini 2.5 Pro"
+  description     String?     // Optional description
+
+  capabilities    String      // JSON: ["text", "vision", "json-mode", "function-calling"]
+  maxTokens       Int?
+
+  enabled         Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  userConfigs     AIModelConfig[]
+
+  @@unique([providerId, modelId])
+}
+
+// User's encrypted API key
+model UserAIKey {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  providerId   String
+  provider     AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  apiKey       String     // Encrypted API key
+  keyLast4     String     // Last 4 digits for display (e.g., "sk-...xyz9")
+  isValid      Boolean    @default(true)
+  lastValidated DateTime?
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, providerId])
+  @@index([userId])
+}
+
+// Per-module model configuration
+model AIModelConfig {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  modelId     String
+  model       AIModel  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  taskType    String   // "health-analysis", "diet-photo", etc.
+  enabled     Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, modelId, taskType])
+  @@index([userId])
+  @@index([taskType])
+}
+
+// ========================================
+// Task Progress Models (断点续传)
+// ========================================
+
+// 任务进度跟踪表
+model TaskProgress {
+  id               String   @id @default(cuid())
+
+  // 任务标识
+  taskType         String   // "weekly-summary", "meal-analysis", etc.
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // 任务状态
+  status           TaskStatus @default(PENDING)
+  currentStep      String?  // 当前步骤key (auth, fetch, analyze, etc.)
+  progress         Int      @default(0) // 0-100
+
+  // 任务参数（JSON存储，支持不同任务类型的参数）
+  parameters       Json     // { startDate, endDate, summaryName, summaryType, ... }
+
+  // 已完成的步骤（JSON数组，保存已完成的步骤key列表）
+  completedSteps   String   @default("[]") // JSON: ["auth", "fetch", "validate", ...]
+
+  // 中间数据（JSON存储，保存任务的中间状态）
+  intermediateData String?  // JSON: { analyzedGroupIds, recommendationId, mealGroups, ... }
+
+  // 结果数据（任务完成后的结果）
+  resultData       String?  // JSON: { summaryId, summary, ... }
+
+  // 错误信息
+  error            String?
+
+  // 时间追踪
+  startedAt        DateTime?
+  completedAt      DateTime?
+  pausedAt         DateTime?
+  cancelledAt      DateTime?
+  lastHeartbeatAt  DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([clientId, taskType])
+  @@index([clientId, status])
+  @@index([taskType, status])
+  @@index([status, updatedAt])
 }
