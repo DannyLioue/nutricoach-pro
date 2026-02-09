@@ -21,10 +21,11 @@ export type TaskStatus = PrismaTaskStatus;
  * 任务类型
  */
 export type TaskType =
-  | 'weekly-summary'      // 周饮食汇总生成
-  | 'meal-analysis'       // 单个食谱组分析
-  | 'health-analysis'     // 体检报告分析
-  | 'recommendation';     // 营养干预方案生成
+  | 'weekly-summary'              // 周饮食汇总生成
+  | 'incremental-summary-update'  // 增量更新饮食汇总
+  | 'meal-analysis'               // 单个食谱组分析
+  | 'health-analysis'             // 体检报告分析
+  | 'recommendation';             // 营养干预方案生成
 
 /**
  * 任务步骤定义
@@ -54,6 +55,7 @@ export interface WeeklySummaryTaskParameters {
   summaryName?: string;
   summaryType: 'week' | 'custom';
   mealGroupIds?: string[];
+  forceRegenerate?: boolean; // 是否强制重新生成所有食谱组（忽略已分析状态）
 }
 
 /**
@@ -101,17 +103,68 @@ export interface WeeklySummaryResultData {
 /**
  * 通用任务参数
  */
-export type TaskParameters = WeeklySummaryTaskParameters;
+export type TaskParameters = WeeklySummaryTaskParameters | IncrementalUpdateTaskParameters;
 
 /**
  * 通用中间数据
  */
-export type TaskIntermediateData = WeeklySummaryIntermediateData;
+export type TaskIntermediateData = WeeklySummaryIntermediateData | IncrementalUpdateIntermediateData;
 
 /**
  * 通用结果数据
  */
 export type TaskResultData = WeeklySummaryResultData;
+
+/**
+ * 增量更新饮食汇总任务参数
+ */
+export interface IncrementalUpdateTaskParameters {
+  summaryId: string;      // 要更新的汇总ID
+  clientId: string;
+  skipGroupIds: string[];     // 跳过的食谱组ID（未变化的）
+  analyzeGroupIds: string[];  // 需要分析的食谱组ID（有变化的）
+}
+
+/**
+ * 增量更新饮食汇总中间数据
+ * 与 WeeklySummaryIntermediateData 结构相同，但包含已跳过的食谱组数据
+ */
+export interface IncrementalUpdateIntermediateData {
+  // 已分析的食谱组ID
+  analyzedGroupIds?: string[];
+
+  // 当前正在分析的食谱组ID
+  currentGroupId?: string;
+
+  // 营养方案ID
+  recommendationId?: string;
+
+  // 体检分析数据
+  healthAnalysis?: any;
+
+  // 已获取的食谱组数据（包括跳过的和新分析的）
+  mealGroups?: Array<{
+    id: string;
+    date: string;
+    name: string;
+    mealType: string;
+    totalScore?: number | null;
+    overallRating?: string | null;
+    combinedAnalysis?: any;
+  }>;
+
+  // 跳过的食谱组数据（直接使用已有分析结果）
+  skippedGroups?: Array<{
+    id: string;
+    combinedAnalysis: any;
+  }>;
+
+  // 总照片数
+  totalPhotos?: number;
+
+  // AI 生成结果（在 generate 步骤生成，在 save 步骤使用）
+  resultData?: any;
+}
 
 /**
  * 任务进度响应

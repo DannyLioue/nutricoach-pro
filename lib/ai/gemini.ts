@@ -12,6 +12,8 @@ import {
   EVALUATE_NUTRITIONIST_PLAN_PROMPT,
   WEEKLY_DIET_SUMMARY_PROMPT,
 } from './prompts';
+import { getModelForTask, getDefaultModelForTask } from './model-config';
+import type { AITaskType } from '@/types/ai-config';
 import type {
   HealthAnalysis,
   DietRecommendation,
@@ -26,18 +28,64 @@ import type {
   Suggestion,
   WeeklyDietSummaryContent,
 } from '@/types';
+import { auth } from '@/lib/auth';
 
 // 设置全局环境变量（确保在动态导入时可用）
 process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GEMINI_API_KEY || '';
 
-// 使用 Gemini 3.5 Pro 模型（最新最强）
-const model = google('gemini-2.5-pro');
+/**
+ * Get dynamically configured AI model for a specific task
+ *
+ * This function retrieves the user's configured model for the given task type,
+ * or falls back to the default model if no user configuration exists.
+ *
+ * @param taskType - The AI task type (e.g., 'health-analysis', 'diet-photo-analysis')
+ * @returns Promise with configured Google AI model
+ */
+async function getModel(taskType: AITaskType) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    // If no session, fall back to environment variable with default model
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GEMINI_API_KEY || '';
+    return google(getDefaultModelForTask(taskType));
+  }
 
-// 用于 Vision API 的模型（快速多模态模型）
-const visionModel = google('gemini-2.5-flash');
+  const { provider, modelId, apiKey } = await getModelForTask(
+    session.user.id,
+    taskType
+  );
+
+  // Set API key for this request
+  process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
+
+  return google(modelId);
+}
 
 /**
- * 分析体检报告
+ * Analyzes health report data using AI (Gemini 2.5 Pro)
+ *
+ * Takes extracted health report data and client information to generate a comprehensive
+ * health analysis including BMI, BMR, TDEE, macro targets, and abnormal indicator analysis.
+ * Based on medical nutrition therapy (MNT) standards and evidence-based medicine.
+ *
+ * @param clientInfo - Client demographic and health information
+ * @param clientInfo.name - Client's name
+ * @param clientInfo.gender - Client's gender
+ * @param clientInfo.age - Client's age in years
+ * @param clientInfo.height - Height in centimeters
+ * @param clientInfo.weight - Weight in kilograms
+ * @param clientInfo.activityLevel - Activity level (sedentary/light/moderate/active/very_active)
+ * @param clientInfo.allergies - List of food allergies
+ * @param clientInfo.medicalHistory - List of medical conditions
+ * @param reportData - Extracted health report data with indicators
+ * @returns Promise resolving to HealthAnalysis with BMI, macro targets, and recommendations
+ * @throws Error if AI analysis fails
+ *
+ * @example
+ * const analysis = await analyzeHealthReport(
+ *   { name: "John", gender: "male", age: 35, height: 175, weight: 70, ... },
+ *   { indicators: [{ name: "Hemoglobin", value: "140", unit: "g/L", ... }] }
+ * );
  */
 export async function analyzeHealthReport(
   clientInfo: {
@@ -54,6 +102,9 @@ export async function analyzeHealthReport(
 ): Promise<HealthAnalysis> {
   try {
     const prompt = HEALTH_ANALYSIS_PROMPT(clientInfo, reportData);
+
+    // Use dynamic model loading for health analysis
+    const model = await getModel('health-analysis');
 
     const { text } = await generateText({
       model,
@@ -82,6 +133,8 @@ export async function generateDietRecommendation(
   try {
     const prompt = DIET_RECOMMENDATION_PROMPT(healthAnalysis, preferences, allergies);
 
+    const model = await getModel('diet-recommendation');
+
     const { text } = await generateText({
       model,
       prompt,
@@ -107,6 +160,8 @@ export async function generateExerciseRecommendation(
   try {
     const prompt = EXERCISE_RECOMMENDATION_PROMPT(healthAnalysis, activityLevel);
 
+    const model = await getModel('exercise-recommendation');
+
     const { text } = await generateText({
       model,
       prompt,
@@ -131,6 +186,8 @@ export async function generateLifestyleRecommendation(
   try {
     const prompt = LIFESTYLE_RECOMMENDATION_PROMPT(healthAnalysis);
 
+    const model = await getModel('lifestyle-recommendation');
+
     const { text } = await generateText({
       model,
       prompt,
@@ -151,8 +208,10 @@ export async function generateLifestyleRecommendation(
  */
 export async function analyzeReportImage(imageBase64: string): Promise<any> {
   try {
+    const model = await getModel('diet-photo-analysis');
+
     const { text } = await generateText({
-      model: visionModel,
+      model,
       messages: [
         {
           role: 'user',
@@ -206,8 +265,10 @@ export async function analyzeDietPhoto(
   try {
     const prompt = DIET_PHOTO_ANALYSIS_PROMPT(clientInfo);
 
+    const model = await getModel('diet-photo-analysis');
+
     const { text } = await generateText({
-      model: visionModel,
+      model,
       messages: [
         {
           role: 'user',
@@ -235,8 +296,35 @@ export async function analyzeDietPhoto(
 }
 
 /**
- * 评估饮食照片与营养干预方案的合规性
- * 使用 Vision API 分析照片，对比客户的营养干预方案进行评估
+ * Evaluates diet photo compliance against nutrition intervention plan using Vision AI
+ *
+ * Analyzes a food photo using Gemini 2.5 Flash (vision model) to recognize foods
+ * and evaluate compliance with the client's personalized nutrition intervention plan.
+ * Returns detailed nutrition analysis, compliance score, and improvement suggestions.
+ *
+ * @param imageBase64 - Base64 encoded image data of the meal photo
+ * @param clientInfo - Client demographic and health context
+ * @param clientInfo.name - Client's name for personalized response
+ * @param clientInfo.gender - Client's gender (affects nutritional needs)
+ * @param clientInfo.age - Client's age in years
+ * @param clientInfo.healthConcerns - Array of health concerns/diagnoses
+ * @param recommendation - Full nutrition intervention plan content with traffic light foods, meal plans, etc.
+ * @param notes - Optional notes/annotations that provide additional context about the photo (e.g., "午餐：米饭、青菜、红烧肉")
+ * @returns Promise resolving to DietComplianceEvaluation with:
+ *   - recognizedFoods: Array of identified foods in the photo
+ *   - complianceEvaluation: Overall score (0-100), rating, and nutrition balance
+ *   - nutritionAnalysis: Detailed breakdown of protein, vegetables, carbs, fat, fiber
+ *   - improvementSuggestions: Specific recommendations for improvements
+ *   - summary: Human-readable summary
+ * @throws Error if image analysis fails
+ *
+ * @example
+ * const evaluation = await evaluateDietPhotoCompliance(
+ *   'data:image/jpeg;base64,/9j/4AAQ...',
+ *   { name: "Mary", gender: "female", age: 42, healthConcerns: ["高血脂"] },
+ *   { trafficLightFoods: { green: [...], red: [...] }, ... },
+ *   "午餐：公司食堂，两荤一素"
+ * );
  */
 export async function evaluateDietPhotoCompliance(
   imageBase64: string,
@@ -246,13 +334,23 @@ export async function evaluateDietPhotoCompliance(
     age: number;
     healthConcerns: string[];
   },
-  recommendation: any // ComprehensiveRecommendation content
+  recommendation: any, // ComprehensiveRecommendation content
+  notes?: string | null // 备注信息，对照片的补充说明
 ): Promise<DietComplianceEvaluation> {
   try {
-    const prompt = DIET_PHOTO_COMPLIANCE_EVALUATION_PROMPT(clientInfo, recommendation);
+    // 调试日志：确认备注是否传递
+    if (notes) {
+      console.log(`[evaluateDietPhotoCompliance] 备注已传递，长度: ${notes.length}, 内容: "${notes}"`);
+    } else {
+      console.log(`[evaluateDietPhotoCompliance] 无备注信息`);
+    }
+
+    const prompt = DIET_PHOTO_COMPLIANCE_EVALUATION_PROMPT(clientInfo, recommendation, notes);
+
+    const model = await getModel('diet-photo-analysis');
 
     const { text } = await generateText({
-      model: visionModel,
+      model,
       messages: [
         {
           role: 'user',
@@ -280,8 +378,33 @@ export async function evaluateDietPhotoCompliance(
 }
 
 /**
- * 根据文字描述分析饮食合规性
- * 用于没有照片的情况下，通过文字描述来评估饮食
+ * Evaluates diet compliance from text description when no photo is available
+ *
+ * Analyzes a written description of a meal using Gemini 2.5 Pro (text model)
+ * to evaluate compliance with the client's personalized nutrition intervention plan.
+ * Used when clients prefer to describe their meals in text instead of taking photos.
+ *
+ * @param textDescription - User's written description of what they ate (Chinese text)
+ * @param clientInfo - Client demographic and health context
+ * @param clientInfo.name - Client's name for personalized response
+ * @param clientInfo.gender - Client's gender (affects nutritional needs)
+ * @param clientInfo.age - Client's age in years
+ * @param clientInfo.healthConcerns - Array of health concerns/diagnoses
+ * @param recommendation - Full nutrition intervention plan content to compare against
+ * @returns Promise resolving to DietComplianceEvaluation with:
+ *   - recognizedFoods: Array of foods mentioned in the description
+ *   - complianceEvaluation: Overall score (0-100), rating, and nutrition balance
+ *   - nutritionAnalysis: Detailed breakdown of protein, vegetables, carbs, fat, fiber
+ *   - improvementSuggestions: Specific recommendations for improvements
+ *   - summary: Human-readable summary
+ * @throws Error if text analysis fails
+ *
+ * @example
+ * const evaluation = await evaluateTextDescriptionCompliance(
+ *   '早上吃了一碗燕麦谷物碗+一包坚果+一颗鸡蛋',
+ *   { name: "John", gender: "male", age: 35, healthConcerns: ["高血压"] },
+ *   { trafficLightFoods: { ... }, ... }
+ * );
  */
 export async function evaluateTextDescriptionCompliance(
   textDescription: string,
@@ -291,10 +414,13 @@ export async function evaluateTextDescriptionCompliance(
     age: number;
     healthConcerns: string[];
   },
-  recommendation: any // ComprehensiveRecommendation content
+  recommendation: any, // ComprehensiveRecommendation content
+  notes?: string | null // 备注信息，对文字描述的补充说明
 ): Promise<DietComplianceEvaluation> {
   try {
-    const prompt = DIET_TEXT_DESCRIPTION_EVALUATION_PROMPT(textDescription, clientInfo, recommendation);
+    const prompt = DIET_TEXT_DESCRIPTION_EVALUATION_PROMPT(textDescription, clientInfo, recommendation, notes);
+
+    const model = await getModel('diet-photo-analysis');
 
     const { text } = await generateText({
       model,
@@ -334,6 +460,8 @@ export async function analyzeConsultation(
 ): Promise<ConsultationAnalysis> {
   try {
     const prompt = CONSULTATION_ANALYSIS_PROMPT(clientInfo, consultationData);
+
+    const model = await getModel('consultation-analysis');
 
     const { text } = await generateText({
       model,
@@ -406,8 +534,10 @@ ${planText}
 如果某个部分没有内容，请设为空数组或 null。
 `;
 
+    const model = await getModel('general-text');
+
     const { text } = await generateText({
-      model: visionModel, // 使用 flash 模型，快速且足够准确
+      model,
       prompt,
       temperature: 0.1,
     });
@@ -458,8 +588,10 @@ export async function evaluateNutritionistPlan(
       extractedPlan
     );
 
+    const model = await getModel('health-analysis');
+
     const { text } = await generateText({
-      model, // 使用 pro 模型，确保评估质量
+      model,
       prompt,
       temperature: 0.2,
     });
@@ -534,9 +666,107 @@ function tryFixMalformedJson(jsonString: string): string | null {
 }
 
 /**
- * 生成本周饮食汇总
- * 根据本周的饮食记录、营养干预方案和体检指标，生成综合性评价和改进建议
+ * Generates comprehensive weekly diet summary using AI (Gemini 2.5 Pro)
+ *
+ * Analyzes all meal records from a given week, compares against the nutrition intervention plan
+ * and health indicators, and generates a comprehensive evaluation including:
+ * - Compliance scoring for each meal (excellent/good/fair/poor)
+ * - Nutrition intake analysis (protein, vegetables, carbs, fat, fiber)
+ * - Food intake tracking (all green/yellow/red light foods consumed)
+ * - Personalized improvement recommendations with SMART goals
+ *
+ * Features robust JSON parsing with error recovery for malformed AI responses.
+ *
+ * @param clientInfo - Client demographic and health context
+ * @param clientInfo.name - Client's name for personalized response
+ * @param clientInfo.gender - Client's gender (affects nutritional needs)
+ * @param clientInfo.age - Client's age in years
+ * @param clientInfo.healthConcerns - Array of health concerns/diagnoses
+ * @param clientInfo.userRequirements - Optional special dietary requirements
+ * @param clientInfo.preferences - Optional food preferences
+ * @param weekData - Weekly meal data for analysis
+ * @param weekData.weekRange - Date range string (e.g., "2026-01-26")
+ * @param weekData.mealGroups - Array of meal groups with scores and analysis results
+ * @param recommendation - Full nutrition intervention plan content
+ * @param healthAnalysis - Optional health analysis data with indicators
+ * @returns Promise resolving to WeeklyDietSummaryContent with:
+ *   - statistics: Average score, total meals, score distribution
+ *   - complianceEvaluation: Overall rating and week-by-week breakdown
+ *   - nutritionAnalysis: Detailed nutrient intake assessment
+ *   - foodIntakeAnalysis: Complete list of foods consumed by category
+ *   - improvementRecommendations: SMART goals for next week
+ *   - summary: Human-readable weekly summary
+ * @throws Error if AI generation fails or JSON cannot be parsed
+ *
+ * @example
+ * const summary = await generateWeeklyDietSummary(
+ *   { name: "Sarah", gender: "female", age: 38, healthConcerns: ["糖尿病", "高血压"] },
+ *   { weekRange: "2026-01-26", mealGroups: [{ date: "1/15", mealType: "午餐", ... }] },
+ *   { trafficLightFoods: { ... }, ... },
+ *   { indicators: [...] }
+ * );
  */
+/**
+ * Compress week data to reduce context window usage
+ * Extracts only essential information needed for weekly summary
+ */
+function compressWeekData(weekData: {
+  weekRange: string;
+  mealGroups: Array<{
+    date: string;
+    mealType: string;
+    totalScore: number;
+    combinedAnalysis: any;
+  }>;
+}) {
+  return {
+    weekRange: weekData.weekRange,
+    mealGroups: weekData.mealGroups.map(g => {
+      const summary = g.combinedAnalysis?.summary || {};
+      const nutrition = g.combinedAnalysis?.nutritionSummary;
+      const recognizedFoods = g.combinedAnalysis?.recognizedFoods || [];
+
+      return {
+        date: g.date,
+        mealType: g.mealType,
+        totalScore: g.totalScore,
+        // Only include essential summary data
+        redFoods: (summary.redFoods || []).slice(0, 10), // Limit to 10
+        yellowFoods: (summary.yellowFoods || []).slice(0, 10),
+        greenFoods: (summary.greenFoods || []).slice(0, 5),
+        totalCount: summary.totalCount || 0,
+        // Nutrition summary (short format)
+        protein: nutrition?.protein || '-',
+        vegetables: nutrition?.vegetables || '-',
+        fiber: nutrition?.fiber || '-',
+        carbs: nutrition?.carbs || '-',
+        fat: nutrition?.fat || '-',
+        // Key foods (limit to top 5 each)
+        recognizedFoods: recognizedFoods.slice(0, 5).map((f: any) => ({
+          food: f.food,
+          category: f.category,
+          healthImpact: f.healthImpact,
+        })),
+      };
+    }),
+  };
+}
+
+/**
+ * Compress recommendation to reduce context window usage
+ * Extracts only essential information needed for weekly summary
+ */
+function compressRecommendation(recommendation: any) {
+  return {
+    dailyTargets: recommendation.dailyTargets || {},
+    trafficLightFoods: {
+      green: (recommendation.trafficLightFoods?.green || []).slice(0, 15),
+      yellow: (recommendation.trafficLightFoods?.yellow || []).slice(0, 10),
+      red: (recommendation.trafficLightFoods?.red || []).slice(0, 10),
+    },
+  };
+}
+
 export async function generateWeeklyDietSummary(
   clientInfo: {
     name: string;
@@ -559,22 +789,29 @@ export async function generateWeeklyDietSummary(
   healthAnalysis: HealthAnalysis | null
 ): Promise<WeeklyDietSummaryContent> {
   try {
+    // Compress data to reduce context window usage
+    const compressedWeekData = compressWeekData(weekData);
+    const compressedRecommendation = compressRecommendation(recommendation);
+
     const prompt = WEEKLY_DIET_SUMMARY_PROMPT(
       clientInfo,
-      weekData,
-      recommendation,
+      compressedWeekData,
+      compressedRecommendation,
       healthAnalysis
     );
 
     console.log('[Weekly Diet Summary] Calling AI with prompt length:', prompt.length);
     console.log('[Weekly Diet Summary] Number of meal groups:', weekData.mealGroups.length);
+    console.log('[Weekly Diet Summary] Compressed data size:', JSON.stringify(compressedWeekData).length);
 
-    // 设置更长的超时时间（15分钟）来处理大型数据集
+    // Use dynamic model loading for weekly summary
+    const model = await getModel('weekly-summary');
+
+    // 设置更长的超时时间来处理大型数据集
     const { text } = await generateText({
       model,
       prompt,
       temperature: 0.4, // 平衡创造性和一致性
-      maxTokens: 8192, // 限制最大token数，避免生成过长内容导致JSON格式错误
     });
 
     console.log('[Weekly Diet Summary] AI response length:', text.length);

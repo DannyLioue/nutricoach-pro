@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calendar, TrendingUp, TrendingDown, Award, ChevronDown, ChevronUp, Loader2, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, Award, ChevronDown, ChevronUp, Sparkles, AlertCircle, CheckCircle2, Trash2, RotateCcw, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WeeklyDietSummary, WeeklyDietSummaryContent } from '@/types';
 
@@ -9,17 +9,23 @@ interface WeeklyDietSummaryCardProps {
   summary: WeeklyDietSummary;
   previousSummary?: WeeklyDietSummary | null; // 上周数据，用于对比
   onViewDetails?: (summaryId: string) => void;
+  onDelete?: (summaryId: string) => void;
+  onRegenerate?: (summaryId: string) => void; // 重新生成回调（跳过已分析）
+  onForceRegenerate?: (summaryId: string) => void; // 全部重新生成回调（强制重新分析所有）
   className?: string;
 }
 
 /**
- * 周饮食汇总卡片组件 - 简化版
+ * 饮食汇总卡片组件 - 简化版
  * 默认显示核心信息，点击展开显示完整分析
  */
 export default function WeeklyDietSummaryCard({
   summary,
   previousSummary,
   onViewDetails,
+  onDelete,
+  onRegenerate,
+  onForceRegenerate,
   className = '',
 }: WeeklyDietSummaryCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -77,13 +83,27 @@ export default function WeeklyDietSummaryCard({
 
   // 格式化日期范围
   const formatDateRange = (startDate: string, endDate: string) => {
+    // 处理空字符串或无效日期
+    if (!startDate || !endDate || startDate === '' || endDate === '') {
+      return '日期范围未设置';
+    }
+
     const start = new Date(startDate);
     const end = new Date(endDate);
+
+    // 检查日期是否有效
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return '日期格式错误';
+    }
+
     const startMonth = start.getMonth() + 1;
     const endMonth = end.getMonth() + 1;
     const startDay = start.getDate();
     const endDay = end.getDate();
 
+    if (startMonth === endMonth && startDay === endDay) {
+      return `${startMonth}月${startDay}日`;
+    }
     if (startMonth === endMonth) {
       return `${startMonth}月${startDay}日 - ${endDay}日`;
     }
@@ -154,8 +174,8 @@ export default function WeeklyDietSummaryCard({
         {content.isPartialWeek && (
           <div className="mb-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
             <p className="text-xs text-amber-800 dark:text-amber-300">
-              📊 本周尚未结束 - 基于 {content.recordedDays || content.statistics.totalDays} 天的数据分析
-              {content.totalDaysExpected && `（本周已过 ${content.totalDaysExpected} 天）`}
+              📊 该期间尚未结束 - 基于 {content.recordedDays || content.statistics.totalDays} 天的数据分析
+              {content.totalDaysExpected && `（期间已过 ${content.totalDaysExpected} 天）`}
             </p>
           </div>
         )}
@@ -167,7 +187,7 @@ export default function WeeklyDietSummaryCard({
               {formatDateRange(summary.weekStartDate, summary.weekEndDate)}
             </h3>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              第{summary.weekNumber}周
+              {summary.weekNumber}周
             </span>
           </div>
           <button
@@ -195,7 +215,7 @@ export default function WeeklyDietSummaryCard({
                 )}>
                   {scoreChange.isPositive && <TrendingUp size={14} />}
                   {scoreChange.isNegative && <TrendingDown size={14} />}
-                  {scoreChange.isPositive ? '+' : ''}{scoreChange.value.toFixed(0)} 分 vs 上周
+                  {scoreChange.isPositive ? '+' : ''}{scoreChange.value.toFixed(0)} 分 vs 上期
                 </div>
               )}
             </div>
@@ -283,7 +303,7 @@ export default function WeeklyDietSummaryCard({
               <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="flex items-center gap-2 mb-3">
                   <TrendingUp className="w-5 h-5 text-green-600" />
-                  <h4 className="text-sm font-semibold text-green-900 dark:text-green-100">本周亮点</h4>
+                  <h4 className="text-sm font-semibold text-green-900 dark:text-green-100">期间亮点</h4>
                 </div>
                 <ul className="space-y-2">
                   {highlights.map((highlight, idx) => (
@@ -317,7 +337,7 @@ export default function WeeklyDietSummaryCard({
           {/* 简单建议 */}
           {simpleSuggestion && (
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-blue-500">
-              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">💡 下周建议</h4>
+              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">💡 改进建议</h4>
               <p className="text-sm text-blue-800 dark:text-blue-300">{simpleSuggestion}</p>
             </div>
           )}
@@ -348,15 +368,47 @@ export default function WeeklyDietSummaryCard({
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
           生成于 {new Date(summary.generatedAt).toLocaleDateString('zh-CN')}
         </div>
-        {onViewDetails && (
-          <button
-            onClick={() => onViewDetails(summary.id)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <Sparkles size={16} />
-            查看详情
-          </button>
-        )}
+        <div className="flex gap-2">
+          {onRegenerate && (
+            <button
+              onClick={() => onRegenerate(summary.id)}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-medium rounded-lg transition-colors"
+              title="快速更新：使用已有分析数据重新生成汇总（推荐）"
+            >
+              <RotateCcw size={14} />
+              仅更新汇总
+            </button>
+          )}
+          {onForceRegenerate && (
+            <button
+              onClick={() => onForceRegenerate(summary.id)}
+              className="flex items-center gap-2 px-3 py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-sm font-medium rounded-lg transition-colors"
+              title="完整重新分析：重新分析每个食谱组，然后生成汇总（耗时较长）"
+            >
+              <RefreshCw size={14} />
+              全部重新分析
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(summary.id)}
+              className="flex items-center gap-2 px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium rounded-lg transition-colors"
+              title="删除此汇总"
+            >
+              <Trash2 size={14} />
+              删除
+            </button>
+          )}
+          {onViewDetails && (
+            <button
+              onClick={() => onViewDetails(summary.id)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Sparkles size={16} />
+              查看详情
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -391,37 +443,25 @@ export function WeeklyDietSummaryCardSkeleton() {
  */
 export function WeeklyDietSummaryEmpty({
   onCreateSummary,
-  isGenerating = false,
 }: {
   onCreateSummary?: () => void;
-  isGenerating?: boolean;
 }) {
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-800 p-8 text-center">
       <Calendar className="w-12 h-12 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
       <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-        暂无本周饮食汇总
+        暂无饮食汇总
       </h3>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-        上传本周的饮食照片后，即可生成AI分析汇总报告
+        上传饮食照片后，即可生成AI分析汇总报告
       </p>
       {onCreateSummary && (
         <button
           onClick={onCreateSummary}
-          disabled={isGenerating}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-400 text-white text-sm font-medium rounded-lg transition-colors mx-auto"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors mx-auto"
         >
-          {isGenerating ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              生成中...
-            </>
-          ) : (
-            <>
-              <Sparkles size={16} />
-              生成本周汇总
-            </>
-          )}
+          <Sparkles size={16} />
+          生成饮食汇总
         </button>
       )}
     </div>

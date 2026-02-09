@@ -120,7 +120,26 @@ export async function GET(
             },
           },
           orderBy: { date: 'asc' },
-          include: { photos: true },
+          select: {
+            id: true,
+            name: true,
+            date: true,
+            mealType: true,
+            notes: true,
+            textDescription: true,
+            combinedAnalysis: true,
+            totalScore: true,
+            overallRating: true,
+            photos: {
+              select: {
+                id: true,
+                imageUrl: true,
+                mealType: true,
+                notes: true,
+                analysis: true,
+              },
+            },
+          },
         });
 
         if (mealGroups.length === 0) {
@@ -129,7 +148,23 @@ export async function GET(
           return;
         }
 
-        send({ type: 'progress', step: 'validate', progress: 15, message: `找到 ${mealGroups.length} 条饮食记录`, data: { mealCount: mealGroups.length } });
+        // 检查是否已有本周汇总
+        const existingSummary = await prisma.weeklyDietSummary.findFirst({
+          where: { clientId, startDate, endDate },
+          select: { id: true, summaryName: true },
+        });
+
+        send({
+          type: 'progress',
+          step: 'validate',
+          progress: 15,
+          message: `找到 ${mealGroups.length} 条饮食记录${existingSummary ? '（本周已有汇总，将重新生成）' : ''}`,
+          data: {
+            mealCount: mealGroups.length,
+            hasExistingSummary: !!existingSummary,
+            existingSummaryId: existingSummary?.id
+          }
+        });
 
         // 检查是否有食谱组既没有照片也没有文字描述
         const mealGroupsWithoutData = mealGroups.filter(g =>
@@ -156,10 +191,81 @@ export async function GET(
         }
 
         // Step 4: 检查并分析未分析的食谱组
-        const unanalyzedGroups = mealGroups.filter(g => !g.combinedAnalysis);
+        // 更严格的判断：combinedAnalysis 必须存在且不为空
+        logger.info('[Summary] Checking meal groups for analysis...', {
+          total: mealGroups.length,
+          sampleGroups: mealGroups.slice(0, 3).map(g => ({
+            name: g.name,
+            hasCombinedAnalysis: !!g.combinedAnalysis,
+            combinedAnalysisType: typeof g.combinedAnalysis,
+            combinedAnalysisLength: g.combinedAnalysis?.length || 0,
+            combinedAnalysisPreview: g.combinedAnalysis ? (typeof g.combinedAnalysis === 'string' ? g.combinedAnalysis.slice(0, 50) : JSON.stringify(g.combinedAnalysis).slice(0, 50)) : null
+          }))
+        });
+
+        const analyzedGroups = mealGroups.filter(g => {
+          if (!g.combinedAnalysis) {
+            logger.info(`[Summary] Group "${g.name}" has NO combinedAnalysis`);
+            return false;
+          }
+          // 如果是字符串，检查是否为空
+          if (typeof g.combinedAnalysis === 'string') {
+            const isEmpty = g.combinedAnalysis.trim().length === 0;
+            if (isEmpty) {
+              logger.info(`[Summary] Group "${g.name}" has EMPTY combinedAnalysis string`);
+            } else {
+              logger.info(`[Summary] Group "${g.name}" has VALID combinedAnalysis string (${g.combinedAnalysis.length} chars)`);
+            }
+            return !isEmpty;
+          }
+          // 如果是对象，检查是否有内容
+          logger.info(`[Summary] Group "${g.name}" has OBJECT combinedAnalysis`);
+          return true;
+        });
+        const unanalyzedGroups = mealGroups.filter(g => !analyzedGroups.includes(g));
+
+        // 调试日志
+        logger.info('[Summary Generation] Analysis status:', {
+          total: mealGroups.length,
+          analyzed: analyzedGroups.length,
+          unanalyzed: unanalyzedGroups.length,
+          analyzedNames: analyzedGroups.map(g => ({ name: g.name, hasAnalysis: !!g.combinedAnalysis })),
+          unanalyzedNames: unanalyzedGroups.map(g => g.name),
+        });
+
+        // 通知用户分析状态
+        send({
+          type: 'progress',
+          step: 'check',
+          progress: 20,
+          message: `📋 扫描完成：共 ${mealGroups.length} 个食谱组`,
+          data: {
+            total: mealGroups.length,
+            analyzed: analyzedGroups.length,
+            unanalyzed: unanalyzedGroups.length,
+            analyzedGroups: analyzedGroups.map(g => g.name),
+            unanalyzedGroups: unanalyzedGroups.map(g => g.name)
+          }
+        });
+
+        if (analyzedGroups.length > 0) {
+          send({
+            type: 'progress',
+            step: 'skip',
+            progress: 22,
+            message: `⚡ 已跳过 ${analyzedGroups.length} 个已分析的食谱组（节省 ${Math.round(analyzedGroups.length * 0.5)} 分钟）`,
+            data: { skippedCount: analyzedGroups.length, skippedGroups: analyzedGroups.map(g => g.name) }
+          });
+        }
 
         if (unanalyzedGroups.length > 0) {
-          send({ type: 'progress', step: 'analyze', progress: 25, message: `发现 ${unanalyzedGroups.length} 个未分析的食谱组，开始分析...`, data: { unanalyzedCount: unanalyzedGroups.length } });
+          send({
+            type: 'progress',
+            step: 'analyze',
+            progress: 25,
+            message: `🔍 开始分析 ${unanalyzedGroups.length} 个食谱组...`,
+            data: { needAnalysisCount: unanalyzedGroups.length, needAnalysisGroups: unanalyzedGroups.map(g => g.name) }
+          });
 
           // 分析每个未分析的食谱组
           for (let i = 0; i < unanalyzedGroups.length; i++) {
@@ -317,6 +423,17 @@ export async function GET(
                     overallRating: combinedAnalysis.overallRating,
                   },
                 });
+
+                // 发送食谱组更新事件，让前端实时显示
+                send({
+                  type: 'mealGroupUpdated',
+                  data: {
+                    mealGroupId: mealGroup.id,
+                    totalScore: combinedAnalysis.totalScore || combinedAnalysis.avgScore,
+                    overallRating: combinedAnalysis.overallRating,
+                    combinedAnalysis,
+                  },
+                });
               }
             } catch (error) {
               logger.error(`Failed to analyze meal group ${mealGroup.id}:`, error);
@@ -343,6 +460,15 @@ export async function GET(
 
           mealGroups.length = 0;
           mealGroups.push(...updatedMealGroups as any);
+        } else {
+          // 所有食谱组都已有分析，直接跳到汇总
+          send({
+            type: 'progress',
+            step: 'skip',
+            progress: 65,
+            message: `✨ 所有食谱组都已有分析，直接生成汇总报告`,
+            data: { totalGroups: mealGroups.length, allAnalyzed: true }
+          });
         }
 
         // Step 5: 获取体检数据
@@ -404,7 +530,17 @@ export async function GET(
         }, 0);
 
         // Step 7: AI 生成汇总
-        send({ type: 'progress', step: 'generate', progress: 80, message: 'AI 正在生成汇总分析...', data: { mealCount: mealGroups.length, photoCount: totalPhotos } });
+        send({
+          type: 'progress',
+          step: 'generate',
+          progress: 80,
+          message: `🤖 AI 正在生成汇总分析（${mealGroups.length}个食谱组，${totalPhotos}张照片）...`,
+          data: {
+            mealCount: mealGroups.length,
+            photoCount: totalPhotos,
+            info: '此步骤会调用AI生成整体周报，分析所有饮食数据的趋势和建议'
+          }
+        });
 
         let summary;
         try {

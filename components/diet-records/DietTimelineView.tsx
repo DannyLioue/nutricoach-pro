@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Camera, UtensilsCrossed, CheckCircle2, Clock, AlertCircle, Edit2, Trash2, X, Sparkles } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronDown, ChevronRight, Camera, UtensilsCrossed, CheckCircle2, Clock, AlertCircle, Edit2, Trash2, X, Sparkles, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DietPhotoMealGroup } from '@/types';
 import MealGroupUpload from '@/components/MealGroupUpload';
+import CombinedAnalysisDisplay from './analysis/CombinedAnalysisDisplay';
 
 // Standalone diet photo (not in meal group) - compatible with local DietPhoto interface
 interface StandaloneDietPhoto {
@@ -36,6 +38,8 @@ interface DietTimelineViewProps {
   onDeletePhoto?: (photoId: string) => void;
   onDeleteMealGroup?: (groupId: string) => void;
   onEditMealGroup?: (group: DietPhotoMealGroup) => void;
+  onCopyMealGroup?: (groupId: string) => void;
+  analyzingGroupId?: string | null;
 }
 
 /**
@@ -52,6 +56,8 @@ export default function DietTimelineView({
   onDeletePhoto,
   onDeleteMealGroup,
   onEditMealGroup,
+  onCopyMealGroup,
+  analyzingGroupId,
 }: DietTimelineViewProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
@@ -285,7 +291,8 @@ export default function DietTimelineView({
                       return (
                         <div
                           key={mealGroup.id}
-                          className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden"
+                          id={`meal-group-${mealGroup.id}`}
+                          className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden transition-all"
                         >
                           {/* 食谱组头部 */}
                           <div className="px-4 py-3 flex items-center justify-between bg-purple-50 dark:bg-purple-900/20">
@@ -329,10 +336,15 @@ export default function DietTimelineView({
                                     e.stopPropagation();
                                     onAnalyzeMealGroup(mealGroup.id);
                                   }}
-                                  className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-md transition-colors"
+                                  disabled={analyzingGroupId === mealGroup.id}
+                                  className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="分析整个食谱组"
                                 >
-                                  <Sparkles className="w-4 h-4" />
+                                  {analyzingGroupId === mealGroup.id ? (
+                                    <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Sparkles className="w-4 h-4" />
+                                  )}
                                 </button>
                               )}
                               <button
@@ -345,6 +357,18 @@ export default function DietTimelineView({
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
+                              {onCopyMealGroup && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onCopyMealGroup(mealGroup.id);
+                                  }}
+                                  className="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                                  title="复制食谱组"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -360,16 +384,16 @@ export default function DietTimelineView({
 
                           {/* 展开的照片网格 */}
                           {isExpanded && (
-                            <div className="p-4 bg-white dark:bg-zinc-900">
-                              {/* 分析整个食谱组按钮 */}
-                              {onAnalyzeMealGroup && (
-                                <div className="mb-3 flex justify-center">
+                            <div className="p-4 bg-white dark:bg-zinc-900 space-y-4">
+                              {/* 分析整个食谱组按钮 - 仅在未分析时显示 */}
+                              {onAnalyzeMealGroup && analyzingGroupId !== mealGroup.id && (
+                                <div className="flex justify-center">
                                   <button
                                     onClick={() => onAnalyzeMealGroup(mealGroup.id)}
                                     className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
                                   >
                                     <Sparkles size={16} />
-                                    分析整个食谱组
+                                    <span>分析整个食谱组</span>
                                   </button>
                                 </div>
                               )}
@@ -415,6 +439,17 @@ export default function DietTimelineView({
                                   );
                                 })}
                               </div>
+
+                              {/* 分析结果展示 */}
+                              {mealGroup.combinedAnalysis && (
+                                <div className="relative z-10 bg-white dark:bg-zinc-900">
+                                  <CombinedAnalysisDisplay
+                                    analysis={mealGroup.combinedAnalysis}
+                                    mealGroupName={mealGroup.name}
+                                    photos={groupPhotos}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -430,7 +465,7 @@ export default function DietTimelineView({
     </div>
 
     {/* 编辑食谱组弹窗 */}
-    {showEditModal && editingGroup && (
+    {showEditModal && editingGroup && createPortal(
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
@@ -457,23 +492,34 @@ export default function DietTimelineView({
             />
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     )}
     </>
   );
 }
 
-// 辅助函数
+// 辅助函数 - 获取本地日期的 YYYY-MM-DD 格式
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  if (dateStr === today.toISOString().split('T')[0]) {
+  const todayStr = getLocalDateString(today);
+  const yesterdayStr = getLocalDateString(yesterday);
+
+  if (dateStr === todayStr) {
     return '今天';
   }
-  if (dateStr === yesterday.toISOString().split('T')[0]) {
+  if (dateStr === yesterdayStr) {
     return '昨天';
   }
 

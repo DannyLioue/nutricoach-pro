@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Loader2, Download, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WeeklyDietSummaryContent } from '@/types';
@@ -17,8 +18,8 @@ interface WeeklyDietSummaryModalProps {
 }
 
 /**
- * 周饮食汇总详情弹窗
- * 完整展示AI生成的本周饮食分析报告
+ * 饮食汇总详情弹窗
+ * 完整展示AI生成的饮食分析报告
  */
 export default function WeeklyDietSummaryModal({
   content,
@@ -32,6 +33,13 @@ export default function WeeklyDietSummaryModal({
 }: WeeklyDietSummaryModalProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['summary', 'compliance']));
   const [isExporting, setIsExporting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // 确保组件已挂载（用于 createPortal）
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -58,7 +66,7 @@ export default function WeeklyDietSummaryModal({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `周饮食汇总-${weekRange}.pdf`;
+      a.download = `饮食汇总-${weekRange}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -182,13 +190,15 @@ export default function WeeklyDietSummaryModal({
     );
   };
 
-  return (
+  if (!isMounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* 头部 */}
         <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20">
           <div>
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">本周饮食汇总报告</h2>
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">饮食汇总报告</h2>
             <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">{weekRange}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -785,11 +795,11 @@ export default function WeeklyDietSummaryModal({
             </div>
           </CollapsibleSection>
 
-          {/* 下周目标 */}
+          {/* 后续目标 */}
           {content.nextWeekGoals && (
             <CollapsibleSection
               id="goals"
-              title="下周目标"
+              title="后续目标"
               icon={<TrendingUp className="w-5 h-5 text-indigo-600" />}
             >
               <div className="space-y-4">
@@ -856,6 +866,7 @@ export default function WeeklyDietSummaryModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

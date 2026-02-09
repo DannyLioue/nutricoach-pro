@@ -1,6 +1,228 @@
 @import "tailwindcss";
 @import "./globals-print.css";
 
+/* ============================================
+   NutriCoach Pro Design System
+   "Organic Professional" Aesthetic
+   ============================================ */
+
+/* CSS Variables for Design Tokens */
+:root {
+  /* Primary Colors - Deep Olive Green */
+  --color-primary-50: #f0f4f2;
+  --color-primary-100: #e0ebe6;
+  --color-primary-200: #c3ddd4;
+  --color-primary-300: #97cbb9;
+  --color-primary-400: #68b69e;
+  --color-primary-500: #3d5a4e;
+  --color-primary-600: #2d4a3e;
+  --color-primary-700: #1d3a2e;
+  --color-primary-800: #142b22;
+  --color-primary-900: #0e1f19;
+
+  /* Accent Colors - Vibrant Orange */
+  --color-accent-50: #fff0ed;
+  --color-accent-100: #ffe0d7;
+  --color-accent-200: #ffc1b0;
+  --color-accent-300: #ff9c80;
+  --color-accent-400: #f88a53;
+  --color-accent-500: #e86a33;
+  --color-accent-600: #c84a13;
+  --color-accent-700: #a33a0d;
+  --color-accent-800: #7f2e0f;
+  --color-accent-900: #5e240f;
+
+  /* Neutral Backgrounds - Warm Beige */
+  --color-bg-50: #faf9f7;
+  --color-bg-100: #f7f4ef;
+  --color-bg-200: #efede8;
+  --color-bg-300: #e7e4e0;
+  --color-bg-400: #d4d2ce;
+  --color-bg-500: #b8b6b2;
+  --color-bg-600: #9c9a96;
+  --color-bg-700: #7a7976;
+  --color-bg-800: #5c5b59;
+  --color-bg-900: #3f3e3d;
+
+  /* Text Colors */
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #5a5a5a;
+  --color-text-muted: #8a8a8a;
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--color-bg-100);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+
+/* Display Font */
+.font-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Monospace for data */
+.font-mono {
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.6s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+/* Staggered Animation Delays */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+
+/* Glass Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Gradient Backgrounds */
+.gradient-organic {
+  background: linear-gradient(135deg, var(--color-bg-100) 0%, var(--color-bg-200) 100%);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-700) 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, var(--color-accent-400) 0%, var(--color-accent-600) 100%);
+}
+
+/* Card Styles */
+.card {
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Button Base Styles */
+button {
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.3s ease;
+}
+
+/* Focus Visible */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-accent-500);
+  color: white;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-200);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-500);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-bg-600);
+}
+
+/* Organic Background Pattern */
+.organic-bg {
+  background-color: var(--color-bg-100);
+  background-image:
+    radial-gradient(at 40% 20%, var(--color-primary-100) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, var(--color-accent-100) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, var(--color-bg-200) 0px, transparent 50%),
+    radial-gradient(at 80% 50%, var(--color-bg-200) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, var(--color-primary-100) 0px, transparent 50%);
 }

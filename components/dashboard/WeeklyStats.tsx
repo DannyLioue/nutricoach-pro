@@ -55,9 +55,9 @@ export default function WeeklyStats({ className = '' }: WeeklyStatsProps) {
 
   if (loading) {
     return (
-      <div className={`bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6 ${className}`}>
+      <div className={`glass rounded-2xl p-6 animate-scale-in ${className}`}>
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--color-accent-500)' }} />
         </div>
       </div>
     );
@@ -65,12 +65,13 @@ export default function WeeklyStats({ className = '' }: WeeklyStatsProps) {
 
   if (error) {
     return (
-      <div className={`bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6 ${className}`}>
-        <div className="text-center py-8 text-red-600 dark:text-red-400">
+      <div className={`glass rounded-2xl p-6 animate-scale-in ${className}`}>
+        <div className="text-center py-8" style={{ color: '#ef4444' }}>
           <p>{error}</p>
           <button
             onClick={fetchStats}
-            className="mt-4 text-sm underline text-emerald-600 hover:text-emerald-700"
+            className="mt-4 text-sm underline"
+            style={{ color: 'var(--color-accent-600)' }}
           >
             重试
           </button>
@@ -93,14 +94,17 @@ export default function WeeklyStats({ className = '' }: WeeklyStatsProps) {
   const totalRecommendations = stats?.recommendations.reduce((sum, item) => sum + item.count, 0) || 0;
 
   return (
-    <div className={`bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6 ${className}`}>
+    <div className={`glass rounded-2xl p-6 animate-slide-up ${className}`}>
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+        <h3 className="font-display text-xl font-semibold" style={{ color: 'var(--color-primary-800)' }}>
           本周统计
         </h3>
         <button
           onClick={fetchStats}
-          className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+          className="text-sm transition-colors hover:scale-105"
+          style={{ color: 'var(--color-text-muted)' }}
+          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-600)'}
+          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
         >
           刷新
         </button>
@@ -111,55 +115,53 @@ export default function WeeklyStats({ className = '' }: WeeklyStatsProps) {
         <StatCard
           title="新增客户"
           value={totalClients}
-          color="text-emerald-600"
-          bgColor="bg-emerald-50 dark:bg-emerald-900/20"
+          color="emerald"
         />
         <StatCard
           title="分析照片"
           value={totalPhotos}
-          color="text-blue-600"
-          bgColor="bg-blue-50 dark:bg-blue-900/20"
+          color="blue"
         />
         <StatCard
           title="生成建议"
           value={totalRecommendations}
-          color="text-purple-600"
-          bgColor="bg-purple-50 dark:bg-purple-900/20"
+          color="purple"
         />
       </div>
 
       {/* 图表 */}
       {chartData.length > 0 ? (
-        <div className="h-64">
+        <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" />
+              <CartesianGrid strokeDasharray="3 3" style={{ stroke: 'var(--color-bg-400)' }} />
               <XAxis
                 dataKey="date"
-                className="text-zinc-600 dark:text-zinc-400 text-sm"
+                style={{ fill: 'var(--color-text-muted)', fontSize: '12px' }}
                 tick={{ fill: 'currentColor' }}
               />
-              <YAxis className="text-zinc-600 dark:text-zinc-400 text-sm" tick={{ fill: 'currentColor' }} />
+              <YAxis style={{ fill: 'var(--color-text-muted)', fontSize: '12px' }} tick={{ fill: 'currentColor' }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  backgroundColor: 'var(--color-primary-800)',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '12px',
                   color: '#fff',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
                 }}
               />
               <Legend
                 wrapperStyle={{
                   paddingTop: '20px',
-                  color: '#71717a',
+                  color: 'var(--color-text-secondary)',
                 }}
               />
               <Line
                 type="monotone"
                 dataKey="新增客户"
-                stroke="#10b981"
+                stroke="var(--color-primary-500)"
                 strokeWidth={2}
-                dot={{ fill: '#10b981', r: 4 }}
+                dot={{ fill: 'var(--color-primary-500)', r: 4 }}
                 activeDot={{ r: 6 }}
               />
               <Line
@@ -182,9 +184,11 @@ export default function WeeklyStats({ className = '' }: WeeklyStatsProps) {
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
-          <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>本周暂无数据</p>
+        <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-300)' }}>
+            <TrendingUp className="w-8 h-8" style={{ color: 'var(--color-primary-400)' }} />
+          </div>
+          <p className="font-medium">本周暂无数据</p>
         </div>
       )}
     </div>
@@ -194,15 +198,39 @@ export default function WeeklyStats({ className = '' }: WeeklyStatsProps) {
 interface StatCardProps {
   title: string;
   value: number;
-  color: string;
-  bgColor: string;
+  color: 'emerald' | 'blue' | 'purple';
 }
 
-function StatCard({ title, value, color, bgColor }: StatCardProps) {
+function StatCard({ title, value, color }: StatCardProps) {
+  const colorConfig = {
+    emerald: {
+      bg: 'rgba(16, 185, 129, 0.1)',
+      text: '#10b981',
+      gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    },
+    blue: {
+      bg: 'rgba(59, 130, 246, 0.1)',
+      text: '#3b82f6',
+      gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+    },
+    purple: {
+      bg: 'rgba(139, 92, 246, 0.1)',
+      text: '#8b5cf6',
+      gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+    },
+  };
+
+  const config = colorConfig[color];
+
   return (
-    <div className={`rounded-lg ${bgColor} p-4 text-center`}>
-      <div className={`text-2xl font-bold ${color} mb-1`}>{value}</div>
-      <div className="text-sm text-zinc-600 dark:text-zinc-400">{title}</div>
+    <div
+      className="rounded-xl p-4 text-center transition-all hover:scale-105"
+      style={{ backgroundColor: config.bg }}
+    >
+      <div className="w-10 h-10 mx-auto mb-2 rounded-lg flex items-center justify-center" style={{ background: config.gradient }}>
+        <span className="text-white font-display font-bold text-lg">{value}</span>
+      </div>
+      <div className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{title}</div>
     </div>
   );
 }

@@ -117,29 +117,33 @@ export default function DietSummaryDateRangePicker({
       {/* 日期范围选择 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+          <label htmlFor="start-date" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
             开始日期
           </label>
           <input
+            id="start-date"
             type="date"
             value={formatDate(startDate)}
             max={formatDate(endDate)}
             onChange={(e) => handleStartDateChange(e.target.value)}
             disabled={disabled}
+            aria-label="开始日期"
             className="w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ borderColor: 'var(--color-primary-300)' }}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+          <label htmlFor="end-date" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
             结束日期
           </label>
           <input
+            id="end-date"
             type="date"
             value={formatDate(endDate)}
             min={formatDate(startDate)}
             onChange={(e) => handleEndDateChange(e.target.value)}
             disabled={disabled}
+            aria-label="结束日期"
             className="w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ borderColor: 'var(--color-primary-300)' }}
           />

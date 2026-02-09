@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
 import { logger } from '@/lib/logger';
 import { evaluateDietPhotoCompliance, evaluateTextDescriptionCompliance } from '@/lib/ai/gemini';
+import { safeJSONParse, safeJSONParseArray } from '@/lib/utils/jsonUtils';
 
 // 计算年龄的辅助函数
 function calculateAge(birthDate: Date | string): number {
@@ -16,14 +17,9 @@ function calculateAge(birthDate: Date | string): number {
   return age;
 }
 
-// 解析健康问题
+// 解析健康问题 - 使用 safeJSONParse
 function parseHealthConcerns(healthConcernsStr: string): string[] {
-  try {
-    const parsed = JSON.parse(healthConcernsStr || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return safeJSONParseArray<string>(healthConcernsStr);
 }
 
 // GET - 获取单个食谱组详情
@@ -75,16 +71,16 @@ export async function GET(
     // 解析 JSON 字段
     const groupWithParsedData = {
       ...mealGroup,
-      combinedAnalysis: mealGroup.combinedAnalysis ? JSON.parse(mealGroup.combinedAnalysis) : null,
+      combinedAnalysis: safeJSONParse(mealGroup.combinedAnalysis, null),
       photos: mealGroup.photos.map(photo => ({
         ...photo,
-        analysis: photo.analysis ? JSON.parse(photo.analysis) : null,
+        analysis: safeJSONParse(photo.analysis, null),
       })),
     };
 
     return NextResponse.json({ mealGroup: groupWithParsedData });
   } catch (error) {
-    console.error('Failed to fetch meal group:', error);
+    logger.error('Failed to fetch meal group', error);
     return NextResponse.json({ error: '获取食谱组详情失败' }, { status: 500 });
   }
 }
@@ -234,17 +230,14 @@ export async function POST(
     };
 
     // 打印客户信息日志
-    console.log('=== 食谱组分析 - 客户信息 ===');
-    console.log('客户ID:', id);
-    console.log('食谱组ID:', groupId);
-    console.log('食谱组名称:', mealGroup.name);
-    console.log('食谱组日期:', mealGroup.date);
-    console.log('照片数量:', mealGroup.photos.length);
-    console.log('照片详情:', mealGroup.photos.map(p => ({
-      id: p.id,
-      mealGroupId: p.mealGroupId,
-      imageUrl: p.imageUrl.substring(0, 50) + '...',
-    })));
+    logger.debug('食谱组分析 - 开始', {
+      clientId: id,
+      mealGroupId: groupId,
+      mealGroupName: mealGroup.name,
+      mealGroupDate: mealGroup.date,
+      photosCount: mealGroup.photos.length,
+      photoIds: mealGroup.photos.map(p => p.id),
+    });
 
     // 检查是否有孤立的照片（同一天但没有关联到该食谱组的照片）
     const orphanPhotos = await prisma.dietPhoto.findMany({
@@ -259,8 +252,7 @@ export async function POST(
     });
 
     if (orphanPhotos.length > 0) {
-      console.log('发现孤立照片:', orphanPhotos.length, '张');
-      console.log('孤立照片ID:', orphanPhotos.map(p => p.id));
+      logger.debug('发现孤立照片，正在关联', { count: orphanPhotos.length, photoIds: orphanPhotos.map(p => p.id) });
 
       // 自动关联孤立照片到当前食谱组
       await prisma.dietPhoto.updateMany({
@@ -272,7 +264,7 @@ export async function POST(
         },
       });
 
-      console.log('已将孤立照片关联到食谱组');
+      logger.info('已将孤立照片关联到食谱组', { count: orphanPhotos.length, mealGroupId: groupId });
 
       // 重新获取食谱组
       const updatedMealGroup = await prisma.dietPhotoMealGroup.findFirst({
@@ -286,15 +278,16 @@ export async function POST(
       });
 
       if (updatedMealGroup) {
-        console.log('关联后照片数量:', updatedMealGroup.photos.length);
+        logger.debug('关联后照片数量', { count: updatedMealGroup.photos.length });
       }
     }
 
-    console.log('健康问题:', clientInfo.healthConcerns);
-    console.log('用户需求:', clientInfo.userRequirements);
-    console.log('饮食偏好:', clientInfo.preferences);
-    console.log('干预方案日期:', latestRecommendation.generatedAt);
-    console.log('==========================');
+    logger.debug('食谱组分析上下文', {
+      healthConcerns: clientInfo.healthConcerns,
+      userRequirements: clientInfo.userRequirements,
+      preferences: clientInfo.preferences,
+      recommendationDate: latestRecommendation.generatedAt,
+    });
 
     // 使用更新后的mealGroup（如果有关联了孤立照片）
     const finalMealGroup = await prisma.dietPhotoMealGroup.findFirst({
@@ -327,26 +320,33 @@ export async function POST(
 
     if (finalHasPhotos) {
       analysisSource = finalHasTextDescription ? 'both' : 'photos';
-      console.log('=== 分析照片 ===');
+      logger.debug('开始分析照片', { photoCount: finalMealGroup.photos.length });
 
       // 分析所有照片
       for (const photo of finalMealGroup.photos) {
         try {
-          console.log(`开始分析照片 ${photo.id}...`);
-          console.log(`图片URL长度: ${photo.imageUrl?.length || 0}`);
-          console.log(`图片URL前缀: ${photo.imageUrl?.substring(0, 50) || '空'}...`);
+          logger.debug(`分析照片 ${photo.id}`, {
+            urlLength: photo.imageUrl?.length || 0,
+          });
+
+          // 合并照片备注和食谱组备注
+          const combinedNotes = [
+            photo.notes || '',
+            finalMealGroup.notes || '',
+          ].filter(Boolean).join('; ') || undefined;
 
           const evaluation = await evaluateDietPhotoCompliance(
             photo.imageUrl,
             clientInfo,
-            latestRecommendation.content
+            latestRecommendation.content,
+            combinedNotes // 传递合并后的备注信息
           );
           analysisResults.push({
             photoId: photo.id,
             evaluation,
           });
 
-          console.log(`照片 ${photo.id} 分析成功，评分: ${evaluation.complianceEvaluation?.overallScore}`);
+          logger.debug(`照片 ${photo.id} 分析成功`, { score: evaluation.complianceEvaluation?.overallScore });
 
           // 保存单张照片的分析结果
           await prisma.dietPhoto.update({
@@ -357,11 +357,7 @@ export async function POST(
             },
           });
         } catch (error) {
-          console.error(`Failed to analyze photo ${photo.id}:`, error);
-          console.error(`Error details:`, {
-            message: (error as Error).message,
-            stack: (error as Error).stack,
-          });
+          logger.error(`Failed to analyze photo ${photo.id}`, error);
           analysisResults.push({
             photoId: photo.id,
             error: (error as Error).message,
@@ -374,7 +370,7 @@ export async function POST(
       if (successfulAnalyses.length === 0) {
         // 如果照片分析都失败，但有文字描述，尝试用文字描述
         if (finalHasTextDescription) {
-          console.log('照片分析失败，尝试使用文字描述分析');
+          logger.debug('照片分析失败，尝试使用文字描述分析');
           analysisSource = 'text';
         } else {
           // 返回详细的错误信息
@@ -382,7 +378,7 @@ export async function POST(
             photoId: r.photoId,
             error: r.error || '未知错误',
           }));
-          console.error('所有照片分析均失败，详细错误:', errorDetails);
+          logger.error('所有照片分析均失败', { photoErrors: errorDetails });
           return NextResponse.json({
             error: '所有照片分析均失败',
             details: '请检查 Gemini API 配置和图片数据格式',
@@ -446,18 +442,20 @@ export async function POST(
     // 如果有文字描述且没有照片，或照片分析失败，分析文字描述
     if ((finalHasTextDescription && !finalHasPhotos) || (finalHasTextDescription && analysisSource === 'text')) {
       analysisSource = 'text';
-      console.log('=== 分析文字描述 ===');
-      console.log('文字描述:', finalMealGroup.textDescription?.substring(0, 100) + '...');
+      logger.debug('分析文字描述', {
+        preview: finalMealGroup.textDescription?.substring(0, 100) + '...',
+      });
 
       try {
         combinedEvaluation = await evaluateTextDescriptionCompliance(
           finalMealGroup.textDescription!,
           clientInfo,
-          latestRecommendation.content
+          latestRecommendation.content,
+          finalMealGroup.notes // 传递备注信息
         );
-        console.log('文字描述分析成功，评分:', combinedEvaluation.complianceEvaluation?.overallScore);
+        logger.debug('文字描述分析成功', { score: combinedEvaluation.complianceEvaluation?.overallScore });
       } catch (error) {
-        console.error('文字描述分析失败:', error);
+        logger.error('文字描述分析失败', error);
         return NextResponse.json({
           error: '文字描述分析失败',
           details: (error as Error).message
@@ -467,12 +465,13 @@ export async function POST(
 
     // 如果同时有照片和文字描述，合并分析结果
     if (analysisSource === 'both' && finalHasTextDescription && combinedEvaluation) {
-      console.log('=== 合并照片和文字描述分析结果 ===');
+      logger.debug('合并照片和文字描述分析结果');
       try {
         const textEvaluation = await evaluateTextDescriptionCompliance(
           finalMealGroup.textDescription!,
           clientInfo,
-          latestRecommendation.content
+          latestRecommendation.content,
+          finalMealGroup.notes // 传递备注信息
         );
 
         // 合并两个分析结果，取平均分
@@ -515,9 +514,9 @@ export async function POST(
           },
         };
 
-        console.log('合并后评分:', avgScore);
+        logger.debug('合并后评分', { avgScore });
       } catch (error) {
-        console.error('文字描述分析失败，仅使用照片分析结果:', error);
+        logger.error('文字描述分析失败，仅使用照片分析结果', error);
       }
     }
 
@@ -538,11 +537,42 @@ export async function POST(
     const allAdditions = combinedEvaluation.improvementSuggestions?.additions || [];
     const allModifications = combinedEvaluation.improvementSuggestions?.modifications || [];
 
-    // 创建combinedAnalysis对象
+    // 提取食物分类数据
+    const foodTrafficLight = combinedEvaluation.complianceEvaluation?.foodTrafficLightCompliance || {};
+    const nutritionBalanceFromEval = combinedEvaluation.complianceEvaluation?.nutritionBalance || {};
+
+    // 创建combinedAnalysis对象（扁平化结构以匹配组件期望）
+    const analyzedPhotosCount = finalHasPhotos ? (analysisResults?.filter((r: any) => !r.error).length || 0) : 0;
     const combinedAnalysis: any = {
-      analysisSource,
+      // 顶部字段 - 组件直接访问
+      avgScore: avgScore,
+      totalScore: avgScore,
+      overallRating: getRating(avgScore),
+      analyzedPhotos: analyzedPhotosCount,
       totalPhotos: finalMealGroup.photos.length,
+      analysisSource,
       hasTextDescription: finalHasTextDescription,
+
+      // 食物分类摘要（扁平化）
+      summary: {
+        greenFoods: foodTrafficLight.greenFoods || [],
+        yellowFoods: foodTrafficLight.yellowFoods || [],
+        redFoods: foodTrafficLight.redFoods || [],
+        totalCount: (foodTrafficLight.greenFoods?.length || 0) +
+                   (foodTrafficLight.yellowFoods?.length || 0) +
+                   (foodTrafficLight.redFoods?.length || 0),
+      },
+
+      // 营养素摘要（扁平化）
+      nutritionSummary: {
+        protein: nutritionBalanceFromEval.protein?.status || '一般',
+        vegetables: nutritionBalanceFromEval.vegetables?.status || '一般',
+        carbs: nutritionBalanceFromEval.carbs?.status || '一般',
+        fat: nutritionBalanceFromEval.fat?.status || '一般',
+        fiber: nutritionBalanceFromEval.fiber?.status || '一般',
+      },
+
+      // 保留原始数据结构
       ...combinedEvaluation,
     };
 
@@ -665,7 +695,7 @@ export async function POST(
 
     successfulAnalyses.forEach((r: any) => {
       const nb = r.evaluation.complianceEvaluation?.nutritionBalance;
-      console.log('照片营养素数据:', JSON.stringify(nb, null, 2));
+      logger.debug('照片营养素数据', { photoId: r.photoId, nutritionBalance: nb });
       if (nb) {
         if (nb.protein) nutritionBalance.protein[nb.protein as keyof typeof nutritionBalance.protein]++;
         if (nb.vegetables) nutritionBalance.vegetables[nb.vegetables as keyof typeof nutritionBalance.vegetables]++;
@@ -675,13 +705,7 @@ export async function POST(
       }
     });
 
-    console.log('=== 营养素统计结果 ===');
-    console.log('蛋白质统计:', nutritionBalance.protein);
-    console.log('蔬菜统计:', nutritionBalance.vegetables);
-    console.log('碳水统计:', nutritionBalance.carbs);
-    console.log('脂肪统计:', nutritionBalance.fat);
-    console.log('纤维统计:', nutritionBalance.fiber);
-    console.log('====================');
+    logger.debug('营养素统计结果', { nutritionBalance });
 
     // 确定主要的营养素状态（取出现最多的状态）
     const getDominantStatus = (counts: typeof nutritionBalance.protein) => {
@@ -724,14 +748,16 @@ export async function POST(
     }
 
     // 打印个性化建议日志
-    console.log('=== 食谱组 - 生成的个性化建议 ===');
-    console.log('建议数量:', personalizedRecommendations.length);
-    personalizedRecommendations.forEach((rec, idx) => {
-      console.log(`[${idx + 1}] ${rec.category} | ${rec.priority}优先级`);
-      console.log(`    建议: ${rec.recommendation}`);
-      console.log(`    原因: ${rec.reason}`);
+    logger.debug('生成的个性化建议', {
+      count: personalizedRecommendations.length,
+      recommendations: personalizedRecommendations.map((rec, idx) => ({
+        index: idx + 1,
+        category: rec.category,
+        priority: rec.priority,
+        recommendation: rec.recommendation,
+        reason: rec.reason,
+      })),
     });
-    console.log('========================');
 
     combinedAnalysis.recommendations = {
       personalized: personalizedRecommendations.sort((a, b) => {
@@ -841,14 +867,14 @@ export async function PATCH(
       ...updatedGroup,
       createdAt: updatedGroup.createdAt.toISOString(),
       updatedAt: updatedGroup.updatedAt.toISOString(),
-      combinedAnalysis: updatedGroup.combinedAnalysis ? JSON.parse(updatedGroup.combinedAnalysis) : null,
+      combinedAnalysis: safeJSONParse(updatedGroup.combinedAnalysis, null),
       photos: updatedGroup.photos.map(photo => ({
         ...photo,
         uploadedAt: photo.uploadedAt.toISOString(),
         createdAt: photo.createdAt.toISOString(),
         updatedAt: photo.updatedAt.toISOString(),
         analyzedAt: photo.analyzedAt ? photo.analyzedAt.toISOString() : null,
-        analysis: photo.analysis ? JSON.parse(photo.analysis) : null,
+        analysis: safeJSONParse(photo.analysis, null),
       })),
     };
 

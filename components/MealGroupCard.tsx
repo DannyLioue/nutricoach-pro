@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, BarChart3, ChevronDown, ChevronUp, Calendar, AlertCircle } from 'lucide-react';
+import { Trash2, BarChart3, ChevronDown, ChevronUp, Calendar, AlertCircle, Copy } from 'lucide-react';
 import type { DietPhotoMealGroup, DietPhotoInGroup } from '@/types';
 
 interface MealGroupCardProps {
@@ -9,6 +9,7 @@ interface MealGroupCardProps {
   clientId: string;
   onAnalyze?: (groupId: string) => Promise<void>;
   onDelete?: (groupId: string) => Promise<void>;
+  onCopy?: (groupId: string) => void;
   onPhotoClick?: (photo: DietPhotoInGroup) => void;
 }
 
@@ -17,6 +18,7 @@ export default function MealGroupCard({
   clientId,
   onAnalyze,
   onDelete,
+  onCopy,
   onPhotoClick,
 }: MealGroupCardProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -164,6 +166,16 @@ export default function MealGroupCard({
               </>
             )}
           </button>
+          {onCopy && (
+            <button
+              onClick={() => onCopy(mealGroup.id)}
+              className="px-4 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors flex items-center gap-2 text-sm"
+              title="复制食谱组"
+            >
+              <Copy className="h-4 w-4" />
+              复制
+            </button>
+          )}
           <button
             onClick={handleDelete}
             disabled={isDeleting}

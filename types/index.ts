@@ -658,6 +658,10 @@ export interface WeeklyDietSummary {
   weekEndDate: string;             // 周日日期 YYYY-MM-DD
   weekNumber: number;              // 年内周序号 (1-52)
   year: number;                    // 年份
+  startDate: string;               // 汇总开始日期 YYYY-MM-DD
+  endDate: string;                 // 汇总结束日期 YYYY-MM-DD
+  summaryName: string | null;      // 用户自定义的汇总名称
+  summaryType: 'week' | 'custom';  // 汇总类型
   mealGroupIds: string[];          // 本周包含的食谱组ID列表
   summary: WeeklyDietSummaryContent;
   recommendationId: string | null; // 依据的推荐方案ID

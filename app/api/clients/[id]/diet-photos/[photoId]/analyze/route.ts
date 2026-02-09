@@ -110,7 +110,8 @@ export async function POST(
     const evaluation = await evaluateDietPhotoCompliance(
       photo.imageUrl,
       clientInfo,
-      latestRecommendation.content
+      latestRecommendation.content,
+      photo.notes // 传递备注信息，对照片的补充说明
     );
 
     // 生成个性化建议

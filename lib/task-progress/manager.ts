@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db/prisma';
 import { TaskStatus, TaskType } from '@/types';
 import type {
   TaskProgressResponse,
+  TaskParameters,
   WeeklySummaryTaskParameters,
   WeeklySummaryIntermediateData,
 } from '@/types';
@@ -18,7 +19,7 @@ import { Prisma } from '@prisma/client';
 export async function createTask(
   taskType: TaskType,
   clientId: string,
-  parameters: WeeklySummaryTaskParameters
+  parameters: TaskParameters
 ): Promise<TaskProgressResponse> {
   const task = await prisma.taskProgress.create({
     data: {

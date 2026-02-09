@@ -11,6 +11,13 @@ interface CreateSummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onMealGroupUpdate?: (mealGroupId: string, data: { totalScore: number; overallRating: string; combinedAnalysis: any }) => void;
+  prefilledData?: {
+    startDate: string;
+    endDate: string;
+    summaryName?: string;
+  };
+  forceRegenerate?: boolean; // 是否强制重新生成所有食谱组（忽略已分析状态）
 }
 
 // 进度步骤配置 - 与后端 TASK_STEPS 保持一致
@@ -94,7 +101,7 @@ function getStepStatus(stepKey: string, currentStep: string, completedSteps: str
   return 'pending';
 }
 
-export default function CreateSummaryModal({ clientId, isOpen, onClose, onSuccess }: CreateSummaryModalProps) {
+export default function CreateSummaryModal({ clientId, isOpen, onClose, onSuccess, onMealGroupUpdate, prefilledData, forceRegenerate }: CreateSummaryModalProps) {
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [summaryName, setSummaryName] = useState('');
@@ -131,10 +138,18 @@ export default function CreateSummaryModal({ clientId, isOpen, onClose, onSucces
   useEffect(() => {
     if (isOpen) {
       // 打开时重置所有状态
-      const { start, end } = getDateRange('last7Days');
-      setStartDate(start);
-      setEndDate(end);
-      setSummaryName('');
+      if (prefilledData) {
+        // 使用预填充数据
+        setStartDate(new Date(prefilledData.startDate));
+        setEndDate(new Date(prefilledData.endDate));
+        setSummaryName(prefilledData.summaryName || '');
+      } else {
+        // 使用默认值
+        const { start, end } = getDateRange('last7Days');
+        setStartDate(start);
+        setEndDate(end);
+        setSummaryName('');
+      }
       setError('');
       setTaskId(null);
       setTaskStatus(null);
@@ -158,7 +173,7 @@ export default function CreateSummaryModal({ clientId, isOpen, onClose, onSucces
       setProgressMessage('');
       setStepDetails(null);
     }
-  }, [isOpen]);
+  }, [isOpen, prefilledData]);
 
   // 暂停任务
   const handlePause = useCallback(async () => {
@@ -239,6 +254,13 @@ export default function CreateSummaryModal({ clientId, isOpen, onClose, onSucces
           setTaskStatus('RUNNING');
         } else if (data.type === 'stepComplete') {
           setCompletedSteps(data.completedSteps || []);
+        } else if (data.type === 'mealGroupUpdated') {
+          // 食谱组已更新，通知父组件
+          onMealGroupUpdate?.(data.data.mealGroupId, {
+            totalScore: data.data.totalScore,
+            overallRating: data.data.overallRating,
+            combinedAnalysis: data.data.combinedAnalysis,
+          });
         } else if (data.type === 'paused') {
           setTaskStatus('PAUSED');
           eventSource.close();
@@ -272,7 +294,7 @@ export default function CreateSummaryModal({ clientId, isOpen, onClose, onSucces
         setTaskStatus('FAILED');
       }
     };
-  }, [clientId, onSuccess, onClose, taskStatus]);
+  }, [clientId, onSuccess, onClose, taskStatus, onMealGroupUpdate]);
 
   const handleQuickSelect = (range: 'today' | 'thisWeek' | 'lastWeek' | 'last7Days') => {
     const { start, end } = getDateRange(range);
@@ -296,6 +318,7 @@ export default function CreateSummaryModal({ clientId, isOpen, onClose, onSucces
           endDate: formatDate(endDate),
           summaryName: summaryName || undefined,
           summaryType: 'custom',
+          forceRegenerate, // 是否强制重新生成所有食谱组
         }),
       });
 
@@ -405,11 +428,25 @@ export default function CreateSummaryModal({ clientId, isOpen, onClose, onSucces
                       分析 {stepDetails.mealCount} 餐记录，{stepDetails.photoCount} 张照片
                     </span>
                   </>
+                ) : currentStep === 'check' && stepDetails ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />
+                    <span style={{ color: 'var(--color-text-secondary)' }}>
+                      扫描完成：共 {stepDetails.total} 个食谱组
+                    </span>
+                  </>
+                ) : currentStep === 'skip' && stepDetails ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />
+                    <span style={{ color: 'var(--color-text-secondary)' }}>
+                      ⚡ 已跳过 {stepDetails.skippedCount} 个已分析的食谱组
+                    </span>
+                  </>
                 ) : currentStep === 'analyze' && stepDetails ? (
                   <>
                     <Camera className="w-4 h-4" style={{ color: '#3b82f6' }} />
                     <span style={{ color: 'var(--color-text-secondary)' }}>
-                      发现 {stepDetails.unanalyzedCount} 个未分析的食谱组
+                      准备分析 {stepDetails.needAnalysisCount} 个食谱组...
                     </span>
                   </>
                 ) : isPaused ? (
@@ -578,17 +615,12 @@ export default function CreateSummaryModal({ clientId, isOpen, onClose, onSucces
                   关闭
                 </button>
                 <button
-                  onClick={() => {
-                    setTaskId(null);
-                    setTaskStatus(null);
-                    setError('');
-                    setProgress(0);
-                  }}
+                  onClick={handleResume}
                   className="flex-1 px-4 py-2.5 text-white font-medium rounded-xl transition-all hover:scale-105 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                   style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
                 >
                   <RotateCcw className="w-4 h-4" />
-                  重试
+                  重试继续
                 </button>
               </>
             ) : (

@@ -40,7 +40,7 @@ export async function POST(
 
     // 解析请求参数
     const body = await request.json();
-    const { startDate, endDate, summaryName, summaryType } = body;
+    const { startDate, endDate, summaryName, summaryType, forceRegenerate } = body;
 
     // 验证参数
     if (!startDate || !endDate) {
@@ -67,6 +67,7 @@ export async function POST(
       endDate,
       summaryName: summaryName || undefined,
       summaryType: summaryType || 'custom',
+      forceRegenerate: forceRegenerate || false, // 是否强制重新生成所有食谱组
     };
 
     // 创建任务

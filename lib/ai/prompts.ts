@@ -227,7 +227,8 @@ export const DIET_PHOTO_COMPLIANCE_EVALUATION_PROMPT = (
     age: number;
     healthConcerns: string[];
   },
-  recommendation: any // ComprehensiveRecommendation content
+  recommendation: any, // ComprehensiveRecommendation content
+  notes?: string | null // 备注信息，对照片的补充说明
 ) => `
 你是一位资深注册营养师 (RD)，需要评估客户的饮食照片是否符合其专业营养干预方案。
 
@@ -236,6 +237,47 @@ export const DIET_PHOTO_COMPLIANCE_EVALUATION_PROMPT = (
 - 性别：${clientInfo.gender}
 - 年龄：${clientInfo.age}岁
 - 健康问题：${clientInfo.healthConcerns.join('、') || '无'}
+
+## 照片备注${notes ? `（⚠️ 最高优先级 - 用户明确说明）` : `（无）`}
+${notes ? `
+---
+
+### ⚠️⚠️⚠️ 备注内容（必须严格遵守）⚠️⚠️⚠️
+
+${notes}
+
+---
+
+### ⚠️ 关键规则：备注优先于视觉识别
+
+**备注是用户的明确说明，具有最高优先级。当备注与视觉识别冲突时，必须以备注为准！**
+
+#### 常见纠正场景（必须按备注处理）：
+
+1. **食材纠正确认**：
+   - 备注："这是素鸡（豆制品）" → 识别为"素鸡"，按豆制品/绿灯评估 ❌不是肉
+   - 备注："这是魔芋丝不是面条" → 识别为"魔芋丝"，按低卡食材评估 ❌不是面条
+   - 备注："这是红薯不是土豆" → 识别为"红薯"，按粗粮评估
+
+2. **烹饪方式确认**：
+   - 备注："这是水煮的" → 即使有油光，也按水煮评估
+   - 备注："这是空气炸锅（少油）" → 不能按油炸评估
+   - 备注："只用了少量橄榄油" → 不能按高油评估
+
+3. **隐藏食材说明**：
+   - 备注："汤里有豆腐" → 必须识别出豆腐
+   - 备注："用了全麦面粉" → 必须识别为全麦
+
+**执行顺序**：
+1️⃣ 首先阅读备注，理解用户的明确说明
+2️⃣ 观察照片，但不要完全相信视觉判断
+3️⃣ 当备注明确说明时，直接采用备注信息，忽略视觉差异
+4️⃣ 在 foodTrafficLightCompliance 中，按备注说明的食材进行分类
+
+**示例**：
+- 用户备注"素鸡"，你识别成"炸猪排" ❌ 错误！必须用"素鸡"
+- 用户备注"清蒸"，你识别成"油炸" ❌ 错误！必须用"清蒸"
+` : '(无备注)'}
 
 ## 客户的营养干预方案
 
@@ -274,6 +316,21 @@ ${recommendation.healthConcernsInterventions?.concerns?.map((c: any) => `
 `).join('\n') || '无特别健康问题'}
 
 ## 评估任务
+
+### 重要评估原则
+
+1. **烹饪方式判断原则**：
+   - ✅ 如果照片明显有大量油光、酥脆外皮、焦黄色 → 判断为"油炸/油煎"
+   - ✅ 如果备注明确说明烹饪方式 → 按备注说明
+   - ⚠️ **如果无法确定烹饪方式（看起来普通）**：
+     - 对于豆制品（素鸡、豆腐等）→ 默认按"清蒸/水煮/凉拌"评估 ✅
+     - 对于蔬菜 → 默认按"清炒/水煮"评估 ✅
+     - 对于肉类 → 默认按"炒/煮"评估 ✅
+     - **不要默认假设是油炸/油煎！**
+
+2. **食物分类原则**：
+   - 豆制品（素鸡、豆腐、豆干等）→ 按蛋白质来源分类，绿灯食物 ✅
+   - 即使看起来有油，也比油炸肉类健康很多
 
 请分析这张饮食照片，从以下维度进行评估：
 
@@ -412,7 +469,8 @@ export const DIET_TEXT_DESCRIPTION_EVALUATION_PROMPT = (
     age: number;
     healthConcerns: string[];
   },
-  recommendation: any // ComprehensiveRecommendation content
+  recommendation: any, // ComprehensiveRecommendation content
+  notes?: string | null // 备注信息，对文字描述的补充说明
 ) => `
 你是一位资深注册营养师 (RD)，需要评估客户的饮食文字描述是否符合其专业营养干预方案。
 
@@ -421,6 +479,48 @@ export const DIET_TEXT_DESCRIPTION_EVALUATION_PROMPT = (
 - 性别：${clientInfo.gender}
 - 年龄：${clientInfo.age}岁
 - 健康问题：${clientInfo.healthConcerns.join('、') || '无'}
+
+## 备注补充${notes ? `（⚠️ 最高优先级 - 必须严格遵守）` : `（无）`}
+${notes ? `
+---
+
+### ⚠️⚠️⚠️ 备注内容（必须严格遵守）⚠️⚠️⚠️
+
+${notes}
+
+---
+
+### ⚠️ 关键规则：备注优先于文字描述
+
+**备注是用户的明确说明，具有最高优先级。当备注与文字描述冲突时，必须以备注为准！**
+
+#### 常见纠正场景（必须按备注处理）：
+
+1. **额外食材说明（非常重要！）**：
+   - 备注："除此之外，还有半条鲈鱼" → 必须将鲈鱼计入蛋白质来源，不能算纯素食
+   - 备注："额外加了一个鸡蛋" → 必须计入鸡蛋的蛋白质
+   - 备注："还有一份豆腐" → 必须识别豆腐作为蛋白质来源
+   - 备注："汤里有肉片" → 即使文字描述没提，也要计入肉片
+
+2. **食材纠正确认**：
+   - 备注："写的是肉饼实际是素鸡（豆制品）" → 识别为"素鸡"，按豆制品/绿灯评估 ❌不是肉
+   - 备注："是荞麦面不是普通面条" → 识别为"荞麦面"，按粗粮评估
+
+3. **烹饪方式确认**：
+   - 备注："是清蒸的不是油炸的" → 按清蒸评估
+   - 备注："只用了少量橄榄油" → 不能按高油评估
+
+**执行顺序**：
+1️⃣ 首先阅读备注，理解用户的明确说明
+2️⃣ 阅读文字描述，找出所有提到的食物
+3️⃣ **关键**：如果备注中说"还有X"、"额外有X"、"除此之外有X"，必须将这些食物加入识别列表
+4️⃣ 在红绿灯分类和营养分析时，必须包含备注中提到的所有食物
+
+**示例**：
+- 文字描述："青菜豆腐"，备注："除此之外，还有半条鲈鱼"
+  - ✅ 正确：识别为青菜、豆腐、鲈鱼（有蛋白质来源）
+  - ❌ 错误：只识别青菜、豆腐（忽略鲈鱼，误判为纯素食）
+` : '(无备注)'}
 
 ## 客户的营养干预方案
 
@@ -1409,10 +1509,23 @@ export const WEEKLY_DIET_SUMMARY_PROMPT = (
       date: string;
       mealType: string;
       totalScore: number;
-      combinedAnalysis: any;
+      redFoods?: string[];
+      yellowFoods?: string[];
+      greenFoods?: string[];
+      totalCount?: number;
+      protein?: string;
+      vegetables?: string;
+      fiber?: string;
+      carbs?: string;
+      fat?: string;
+      recognizedFoods?: Array<{
+        food: string;
+        category: string;
+        healthImpact: string;
+      }>;
     }>;
   },
-  recommendation: any, // ComprehensiveRecommendation content
+  recommendation: any, // Compressed recommendation content
   healthAnalysis: any // HealthAnalysis
 ) => `
 你是一位资深注册营养师 (RD)，正在为客户生成本周饮食汇总报告。
@@ -1430,21 +1543,20 @@ export const WEEKLY_DIET_SUMMARY_PROMPT = (
 ## 【本周饮食数据 - 详细记录】
 
 **时间范围:** ${weekData.weekRange}
-**记录天数:** ${weekData.mealGroups.length}天
+**记录餐数:** ${weekData.mealGroups.length}餐
 
 **逐餐详细数据:**
 ${weekData.mealGroups.map((g, idx) => {
-  const redFoods = g.combinedAnalysis?.summary?.redFoods || [];
-  const yellowFoods = g.combinedAnalysis?.summary?.yellowFoods || [];
-  const greenFoods = g.combinedAnalysis?.summary?.greenFoods || [];
-  const nutrition = g.combinedAnalysis?.nutritionSummary;
+  const redFoods = g.redFoods || [];
+  const yellowFoods = g.yellowFoods || [];
+  const greenFoods = g.greenFoods || [];
   return `
 【第${idx + 1}餐】${g.date} - ${g.mealType}
 ├ 评分: ${g.totalScore}分 (${g.totalScore >= 90 ? '优秀' : g.totalScore >= 75 ? '良好' : g.totalScore >= 60 ? '一般' : '需改善'})
 ├ 红灯食物(${redFoods.length}个): ${redFoods.length > 0 ? redFoods.join('、') : '无'}
 ├ 黄灯食物(${yellowFoods.length}个): ${yellowFoods.length > 0 ? yellowFoods.join('、') : '无'}
-├ 绿灯食物(${greenFoods.length}个): ${greenFoods.length > 0 ? greenFoods.slice(0, 5).join('、') + (greenFoods.length > 5 ? '...' : '') : '无'}
-└ 营养素评估: 蛋白质${nutrition?.protein || '-'}、蔬菜${nutrition?.vegetables || '-'}、纤维${nutrition?.fiber || '-'}`;
+├ 绿灯食物(${greenFoods.length}个): ${greenFoods.length > 0 ? greenFoods.join('、') : '无'}
+└ 营养素: 蛋白质${g.protein || '-'}、蔬菜${g.vegetables || '-'}、纤维${g.fiber || '-'}、碳水${g.carbs || '-'}、脂肪${g.fat || '-'}`;
 }).join('\n')}
 
 ## 【客户的营养干预方案】

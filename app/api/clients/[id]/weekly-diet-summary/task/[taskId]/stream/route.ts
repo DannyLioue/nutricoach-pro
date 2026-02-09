@@ -98,8 +98,8 @@ export async function GET(
           await updateTaskStatus(taskId, TaskStatus.RUNNING);
         }
 
-        // 创建并执行任务
-        const executor = createExecutor('weekly-summary');
+        // 创建并执行任务 - 使用任务的实际类型
+        const executor = createExecutor(task.taskType);
 
         // 在后台执行任务
         executor.execute(taskId, controller).catch((error) => {

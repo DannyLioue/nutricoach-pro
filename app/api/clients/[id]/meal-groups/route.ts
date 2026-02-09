@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { safeJSONParse } from '@/lib/utils/jsonUtils';
 
 // 验证 schema - 允许照片或文字描述其中一个
 const createMealGroupSchema = z.object({
@@ -77,7 +79,7 @@ export async function GET(
       });
 
       if (orphanPhotos.length > 0) {
-        console.log(`[自动关联] 食谱组 "${group.name}" (${group.date}) 发现 ${orphanPhotos.length} 张孤立照片，正在关联...`);
+        logger.debug(`[自动关联] 食谱组 "${group.name}" (${group.date}) 发现 ${orphanPhotos.length} 张孤立照片，正在关联...`);
         await prisma.dietPhoto.updateMany({
           where: {
             id: { in: orphanPhotos.map(p => p.id) },
@@ -86,7 +88,7 @@ export async function GET(
             mealGroupId: group.id,
           },
         });
-        console.log(`[自动关联] 已将 ${orphanPhotos.length} 张照片关联到食谱组 "${group.name}"`);
+        logger.info(`[自动关联] 已将 ${orphanPhotos.length} 张照片关联到食谱组 "${group.name}"`);
       }
     }
 
@@ -101,40 +103,31 @@ export async function GET(
       },
     });
 
-    // 调试日志
-    console.log('=== GET Meal Groups ===');
-    console.log('Client ID:', id);
-    console.log('Found meal groups:', finalMealGroups.length);
-    finalMealGroups.forEach((group, idx) => {
-      console.log(`Group ${idx + 1}:`, {
-        id: group.id,
-        name: group.name,
-        date: group.date,
-        photosCount: group.photos.length,
-        photoIds: group.photos.map(p => p.id),
-      });
+    logger.debug('Fetching meal groups', {
+      clientId: id,
+      count: finalMealGroups.length,
+      photosPerGroup: finalMealGroups.map(g => ({ id: g.id, name: g.name, photoCount: g.photos.length })),
     });
-    console.log('=======================');
 
     // 解析 JSON 字段并转换 Date 为字符串
     const groupsWithParsedData = finalMealGroups.map(group => ({
       ...group,
       createdAt: group.createdAt.toISOString(),
       updatedAt: group.updatedAt.toISOString(),
-      combinedAnalysis: group.combinedAnalysis ? JSON.parse(group.combinedAnalysis) : null,
+      combinedAnalysis: safeJSONParse(group.combinedAnalysis, null),
       photos: group.photos.map(photo => ({
         ...photo,
         uploadedAt: photo.uploadedAt.toISOString(),
         createdAt: photo.createdAt.toISOString(),
         updatedAt: photo.updatedAt.toISOString(),
         analyzedAt: photo.analyzedAt ? photo.analyzedAt.toISOString() : null,
-        analysis: photo.analysis ? JSON.parse(photo.analysis) : null,
+        analysis: safeJSONParse(photo.analysis, null),
       })),
     }));
 
     return NextResponse.json({ mealGroups: groupsWithParsedData });
   } catch (error) {
-    console.error('Failed to fetch meal groups:', error);
+    logger.error('Failed to fetch meal groups', error);
     return NextResponse.json({ error: '获取食谱组失败' }, { status: 500 });
   }
 }
@@ -182,7 +175,7 @@ export async function POST(
     });
 
     // 创建照片并关联到食谱组（仅当有照片时）
-    let createdPhotos: any[] = [];
+    let createdPhotos: Array<{ id: string; mealGroupId: string | null }> = [];
     if (validatedData.photos && validatedData.photos.length > 0) {
       createdPhotos = await Promise.all(
         validatedData.photos.map(photo =>
@@ -199,13 +192,10 @@ export async function POST(
       );
     }
 
-    // 调试日志
-    console.log('=== POST Meal Group Created ===');
-    console.log('Meal Group ID:', mealGroup.id);
-    console.log('Photos to create:', validatedData.photos?.length || 0);
-    console.log('Photos created:', createdPhotos.length);
-    console.log('Photo IDs:', createdPhotos.map(p => ({ id: p.id, mealGroupId: p.mealGroupId })));
-    console.log('============================');
+    logger.debug('Meal group created', {
+      mealGroupId: mealGroup.id,
+      photosCount: createdPhotos.length,
+    });
 
     // 重新获取完整数据
     const fullMealGroup = await prisma.dietPhotoMealGroup.findUnique({
@@ -232,14 +222,14 @@ export async function POST(
       overallRating: fullMealGroup.overallRating,
       createdAt: fullMealGroup.createdAt.toISOString(),
       updatedAt: fullMealGroup.updatedAt.toISOString(),
-      combinedAnalysis: fullMealGroup.combinedAnalysis ? JSON.parse(fullMealGroup.combinedAnalysis) : null,
+      combinedAnalysis: safeJSONParse(fullMealGroup.combinedAnalysis, null),
       photos: fullMealGroup.photos.map(photo => ({
         ...photo,
         uploadedAt: photo.uploadedAt.toISOString(),
         createdAt: photo.createdAt.toISOString(),
         updatedAt: photo.updatedAt.toISOString(),
         analyzedAt: photo.analyzedAt ? photo.analyzedAt.toISOString() : null,
-        analysis: photo.analysis ? JSON.parse(photo.analysis) : null,
+        analysis: safeJSONParse(photo.analysis, null),
       })),
     };
 
@@ -251,7 +241,7 @@ export async function POST(
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: '数据验证失败', details: error.issues }, { status: 400 });
     }
-    console.error('Failed to create meal group:', error);
+    logger.error('Failed to create meal group', error);
     return NextResponse.json({ error: '创建食谱组失败' }, { status: 500 });
   }
 }

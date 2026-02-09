@@ -3,15 +3,46 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
 import { verifyClientAccess } from '@/lib/auth/client-access';
 import { logger } from '@/lib/logger';
-import { generateWeeklyDietSummary, evaluateDietPhotoCompliance, evaluateTextDescriptionCompliance } from '@/lib/ai/gemini';
+import { generateWeeklyDietSummary } from '@/lib/ai/gemini';
+import { analyzeMealGroup } from '@/lib/services/mealGroupAnalysis';
 import { z } from 'zod';
 import type { HealthAnalysis } from '@/types';
 
 // 请求验证 schema
 const createWeeklySummarySchema = z.object({
-  weekStartDate: z.string().optional(), // 可选，默认本周
-  forceRegenerate: z.boolean().optional().default(false), // 是否强制重新生成
+  startDate: z.string().optional(), // 新增：自定义开始日期 YYYY-MM-DD
+  endDate: z.string().optional(), // 新增：自定义结束日期 YYYY-MM-DD
+  summaryName: z.string().max(100).nullable().optional(), // 新增：自定义汇总名称 (允许 null)
+  summaryType: z.enum(['week', 'custom']).default('custom'), // 新增：汇总类型
+  weekStartDate: z.string().optional(), // 保留向后兼容
+  forceRegenerate: z.boolean().optional().default(false),
 });
+
+// 验证日期范围（最多7天）
+function validateDateRange(startDate: string, endDate: string): { valid: boolean; error?: string; days?: number } {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return { valid: false, error: '日期格式无效' };
+  }
+
+  if (start > end) {
+    return { valid: false, error: '开始日期不能晚于结束日期' };
+  }
+
+  const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  if (daysDiff > 7) {
+    return { valid: false, error: `日期范围不能超过7天（当前选择：${daysDiff}天）` };
+  }
+
+  if (daysDiff < 1) {
+    return { valid: false, error: '日期范围至少需要1天' };
+  }
+
+  return { valid: true, days: daysDiff };
+}
 
 // 计算年龄的辅助函数
 function calculateAge(birthDate: Date | string): number {
@@ -85,18 +116,49 @@ export async function POST(
 
     const validatedData = createWeeklySummarySchema.parse(body);
 
-    // 确定要生成汇总的周
-    const targetDate = validatedData.weekStartDate
-      ? new Date(validatedData.weekStartDate)
-      : new Date();
-    const weekRange = getWeekRange(targetDate);
+    // 确定日期范围
+    let startDate: string;
+    let endDate: string;
+    let summaryType: string;
+    let summaryName: string | undefined;
 
-    // 检查是否已存在该周的汇总
+    if (validatedData.startDate && validatedData.endDate) {
+      // 使用自定义日期范围
+      const validation = validateDateRange(validatedData.startDate, validatedData.endDate);
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: validation.error },
+          { status: 400 }
+        );
+      }
+
+      startDate = validatedData.startDate;
+      endDate = validatedData.endDate;
+      summaryType = validatedData.summaryType || 'custom';
+      summaryName = validatedData.summaryName || undefined;
+
+      logger.info('[Weekly Summary] Using custom date range', { startDate, endDate, days: validation.days });
+    } else {
+      // 向后兼容：使用周范围
+      const targetDate = validatedData.weekStartDate
+        ? new Date(validatedData.weekStartDate)
+        : new Date();
+      const weekRange = getWeekRange(targetDate);
+      startDate = weekRange.startDate;
+      endDate = weekRange.endDate;
+      summaryType = 'week';
+      summaryName = validatedData.summaryName || undefined;
+
+      logger.info('[Weekly Summary] Using week range', { startDate, endDate, weekNumber: weekRange.weekNumber });
+    }
+
+    // 检查是否已存在相同日期范围的汇总（仅当不强制重新生成时）
     if (!validatedData.forceRegenerate) {
       const existingSummary = await prisma.weeklyDietSummary.findFirst({
         where: {
           clientId,
-          weekStartDate: weekRange.startDate,
+          startDate,
+          endDate,
         },
       });
 
@@ -111,13 +173,71 @@ export async function POST(
       }
     }
 
-    // 获取本周的食谱组（按日期排序），包含照片数据
+    // 如果是强制重新生成，先清除旧的分析数据
+    if (validatedData.forceRegenerate) {
+      // 清除旧的同范围汇总
+      await prisma.weeklyDietSummary.deleteMany({
+        where: {
+          clientId,
+          startDate,
+          endDate,
+        },
+      });
+
+      // 清除日期范围内所有食谱组的旧分析数据，强制重新分析
+      await prisma.dietPhotoMealGroup.updateMany({
+        where: {
+          clientId,
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        data: {
+          combinedAnalysis: null,
+          totalScore: null,
+          overallRating: null,
+        },
+      });
+
+      // 清除照片的分析数据和分析时间
+      const mealGroupsToClear = await prisma.dietPhotoMealGroup.findMany({
+        where: {
+          clientId,
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (mealGroupsToClear.length > 0) {
+        await prisma.dietPhoto.updateMany({
+          where: {
+            mealGroupId: {
+              in: mealGroupsToClear.map(g => g.id),
+            },
+          },
+          data: {
+            analysis: null,
+            analyzedAt: null,
+          },
+        });
+      }
+
+      logger.info('[Weekly Summary] 强制重新生成：已清除旧的分析数据');
+      console.log('[Weekly Summary] 强制重新生成：已清除食谱组和照片的旧分析数据');
+    }
+
+    // 获取日期范围内的食谱组（按日期排序），包含照片数据
+    // 注意：如果在forceRegenerate模式下，这里获取的是已清除分析数据的新鲜数据
     const mealGroups = await prisma.dietPhotoMealGroup.findMany({
       where: {
         clientId,
         date: {
-          gte: weekRange.startDate,
-          lte: weekRange.endDate,
+          gte: startDate,
+          lte: endDate,
         },
       },
       orderBy: {
@@ -130,7 +250,7 @@ export async function POST(
 
     if (mealGroups.length === 0) {
       return NextResponse.json(
-        { error: '本周暂无饮食记录，请先上传本周的饮食照片' },
+        { error: `所选日期范围（${startDate} 至 ${endDate}）暂无饮食记录` },
         { status: 400 }
       );
     }
@@ -177,188 +297,21 @@ export async function POST(
         const mealGroup = unanalyzedGroups[i];
         try {
           logger.info(`[Weekly Summary] Analyzing meal group: ${mealGroup.name}`);
-
-          const hasPhotos = mealGroup.photos && mealGroup.photos.length > 0;
-          const hasTextDescription = mealGroup.textDescription && mealGroup.textDescription.trim().length > 0;
-
           console.log(`[Weekly Summary] [${i + 1}/${unanalyzedGroups.length}] 正在分析食谱组: ${mealGroup.name}`);
-          console.log(`[Weekly Summary]   - 照片: ${hasPhotos ? mealGroup.photos.length + '张' : '无'}`);
-          console.log(`[Weekly Summary]   - 文字描述: ${hasTextDescription ? '有' : '无'}`);
 
-          let combinedAnalysis: any = null;
+          // 使用共享的分析函数
+          const result = await analyzeMealGroup(
+            mealGroup.id,
+            clientId,
+            latestRecommendation.content
+          );
 
-          // 如果有照片，分析照片
-          if (hasPhotos) {
-            // 分析所有照片
-            const analysisResults = [];
-            for (let j = 0; j < mealGroup.photos.length; j++) {
-              const photo = mealGroup.photos[j];
-              try {
-                console.log(`[Weekly Summary]   [${j + 1}/${mealGroup.photos.length}] 分析照片 ${photo.id}...`);
-                const evaluation = await evaluateDietPhotoCompliance(
-                  photo.imageUrl,
-                  {
-                    name: client.name || '',
-                    gender: client.gender || 'FEMALE',
-                    age: calculateAge(client.birthDate),
-                    healthConcerns: parseHealthConcerns(client.healthConcerns || '[]'),
-                  },
-                  latestRecommendation.content
-                );
-                console.log(`[Weekly Summary]   [${j + 1}/${mealGroup.photos.length}] 照片分析完成，评分: ${evaluation.complianceEvaluation?.overallScore}`);
-
-                // 保存单张照片的分析结果
-                await prisma.dietPhoto.update({
-                  where: { id: photo.id },
-                  data: {
-                    analysis: JSON.stringify(evaluation),
-                    analyzedAt: new Date(),
-                  },
-                });
-
-                analysisResults.push({
-                  photoId: photo.id,
-                  evaluation,
-                });
-              } catch (error) {
-                console.error(`Failed to analyze photo ${photo.id}:`, error);
-              }
-            }
-
-            // 计算照片的综合分析结果
-            if (analysisResults.length === 0 && !hasTextDescription) {
-              logger.warn(`[Weekly Summary] Failed to analyze any photos for meal group: ${mealGroup.name}`);
-              continue;
-            }
-
-            // 如果有成功的照片分析结果
-            if (analysisResults.length > 0) {
-              const avgScore = Math.round(
-                analysisResults.reduce((sum, r) => sum + (r as any).evaluation.complianceEvaluation.overallScore, 0) /
-                analysisResults.length
-              );
-
-              const getRating = (score: number) => {
-                if (score >= 90) return '优秀';
-                if (score >= 75) return '良好';
-                if (score >= 60) return '一般';
-                return '需改善';
-              };
-
-              // 汇总建议和食物统计
-              const allGreenFoods = new Set<string>();
-              const allYellowFoods = new Set<string>();
-              const allRedFoods = new Set<string>();
-
-              analysisResults.forEach((r: any) => {
-                const compliance = r.evaluation.complianceEvaluation?.foodTrafficLightCompliance;
-                if (compliance) {
-                  compliance.greenFoods?.forEach((food: string) => allGreenFoods.add(food));
-                  compliance.yellowFoods?.forEach((food: string) => allYellowFoods.add(food));
-                  compliance.redFoods?.forEach((food: string) => allRedFoods.add(food));
-                }
-              });
-
-              combinedAnalysis = {
-                analysisSource: hasTextDescription ? 'both' : 'photos',
-                totalPhotos: mealGroup.photos.length,
-                analyzedPhotos: analysisResults.length,
-                avgScore,
-                overallRating: getRating(avgScore),
-                summary: {
-                  greenFoods: Array.from(allGreenFoods),
-                  yellowFoods: Array.from(allYellowFoods),
-                  redFoods: Array.from(allRedFoods),
-                  totalCount: allRedFoods.size,
-                },
-              };
-            }
-          }
-
-          // 如果有文字描述（没有照片或需要合并）
-          if (hasTextDescription && (!hasPhotos || combinedAnalysis === null)) {
-            console.log(`[Weekly Summary]   使用文字描述分析...`);
-            const textEvaluation = await evaluateTextDescriptionCompliance(
-              mealGroup.textDescription!,
-              {
-                name: client.name || '',
-                gender: client.gender || 'FEMALE',
-                age: calculateAge(client.birthDate),
-                healthConcerns: parseHealthConcerns(client.healthConcerns || '[]'),
-              },
-              latestRecommendation.content
-            );
-            console.log(`[Weekly Summary]   文字描述分析完成，评分: ${textEvaluation.complianceEvaluation?.overallScore}`);
-
-            combinedAnalysis = {
-              analysisSource: 'text',
-              totalPhotos: 0,
-              hasTextDescription: true,
-              ...textEvaluation,
-              totalScore: textEvaluation.complianceEvaluation.overallScore,
-              overallRating: textEvaluation.complianceEvaluation.overallRating,
-            };
-          }
-
-          // 如果既有照片又有文字描述，合并结果
-          if (hasPhotos && hasTextDescription && combinedAnalysis && combinedAnalysis.analysisSource === 'photos') {
-            console.log(`[Weekly Summary]   合并照片和文字描述分析...`);
-            try {
-              const textEvaluation = await evaluateTextDescriptionCompliance(
-                mealGroup.textDescription!,
-                {
-                  name: client.name || '',
-                  gender: client.gender || 'FEMALE',
-                  age: calculateAge(client.birthDate),
-                  healthConcerns: parseHealthConcerns(client.healthConcerns || '[]'),
-                },
-                latestRecommendation.content
-              );
-
-              // 合并评分
-              const photoScore = combinedAnalysis.avgScore;
-              const textScore = textEvaluation.complianceEvaluation.overallScore;
-              const avgScore = Math.round((photoScore + textScore) / 2);
-
-              const getRating = (score: number) => {
-                if (score >= 90) return '优秀';
-                if (score >= 75) return '良好';
-                if (score >= 60) return '一般';
-                return '需改善';
-              };
-
-              combinedAnalysis = {
-                ...combinedAnalysis,
-                analysisSource: 'both',
-                hasTextDescription: true,
-                totalScore: avgScore,
-                overallRating: getRating(avgScore),
-                avgScore,
-              };
-
-              console.log(`[Weekly Summary]   合并后评分: ${avgScore}`);
-            } catch (error) {
-              console.error(`[Weekly Summary]   文字描述分析失败，仅使用照片分析:`, error);
-            }
-          }
-
-          if (!combinedAnalysis) {
-            logger.warn(`[Weekly Summary] Failed to analyze meal group: ${mealGroup.name}`);
+          if (!result.success) {
+            console.error(`[Weekly Summary] ✗ 食谱组 "${mealGroup.name}" 分析失败: ${result.error}`);
             continue;
           }
 
-          // 更新食谱组的综合分析结果
-          await prisma.dietPhotoMealGroup.update({
-            where: { id: mealGroup.id },
-            data: {
-              combinedAnalysis: JSON.stringify(combinedAnalysis),
-              totalScore: combinedAnalysis.totalScore || combinedAnalysis.avgScore,
-              overallRating: combinedAnalysis.overallRating,
-            },
-          });
-
-          logger.info(`[Weekly Summary] Successfully analyzed meal group: ${mealGroup.name}, score: ${combinedAnalysis.totalScore || combinedAnalysis.avgScore}`);
-          console.log(`[Weekly Summary] ✓ 食谱组 "${mealGroup.name}" 分析完成，评分: ${combinedAnalysis.totalScore || combinedAnalysis.avgScore}`);
+          console.log(`[Weekly Summary] ✓ 食谱组 "${mealGroup.name}" 分析完成，评分: ${result.totalScore}`);
         } catch (error) {
           console.error(`[Weekly Summary] ✗ 食谱组 "${mealGroup.name}" 分析失败:`, error);
         }
@@ -371,8 +324,8 @@ export async function POST(
         where: {
           clientId,
           date: {
-            gte: weekRange.startDate,
-            lte: weekRange.endDate,
+            gte: startDate,
+            lte: endDate,
           },
         },
         orderBy: { date: 'asc' },
@@ -426,26 +379,30 @@ export async function POST(
       preferences: client.preferences || null,
     };
 
-    // 准备本周数据
-    // 检查本周是否已完整记录
+    // 准备饮食数据
     const today = new Date().toISOString().split('T')[0];
-    const isWeekComplete = today > weekRange.endDate; // 今天是否已过周日
+    const isRangeComplete = today > endDate; // 今天是否已过结束日期
 
     // 计算实际记录的天数
     const recordedDates = new Set(mealGroups.map(g => g.date));
     const recordedDays = recordedDates.size;
 
-    // 本周已过的天数（包括今天）
-    const daysSoFar = Math.min(
-      new Date().getDay() === 0 ? 7 : new Date().getDay(), // 今天是周几（1-7）
-      7
+    // 计算日期范围的总天数
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const totalDaysInRange = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    // 如果日期范围未完成，计算已过的天数
+    const daysSoFar = isRangeComplete ? totalDaysInRange : Math.min(
+      Math.ceil((new Date().getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1,
+      totalDaysInRange
     );
 
     const weekData = {
-      weekRange: `${weekRange.startDate} 至 ${weekRange.endDate}`,
-      isPartial: !isWeekComplete, // 标记是否为部分数据
+      weekRange: `${startDate} 至 ${endDate}`,
+      isPartial: !isRangeComplete,
       recordedDays,
-      totalDaysInWeek: isWeekComplete ? 7 : daysSoFar, // 如果是部分数据，只计算已过的天数
+      totalDaysInWeek: isRangeComplete ? totalDaysInRange : daysSoFar,
       today,
       mealGroups: mealGroups.map((g) => ({
         date: g.date,
@@ -466,16 +423,19 @@ export async function POST(
 
     logger.info('[Weekly Summary] Generating summary for client', {
       clientId,
-      weekRange: weekRange.startDate,
+      dateRange: `${startDate} 至 ${endDate}`,
+      summaryType,
       mealGroupCount: mealGroups.length,
       totalPhotos,
     });
 
     // 调用 AI 生成汇总
     logger.info('[Weekly Summary] Calling AI to generate summary...');
-    console.log('[Weekly Summary] 准备调用AI生成周汇总');
+    console.log('[Weekly Summary] 准备调用AI生成饮食汇总');
     console.log('[Weekly Summary] 客户:', clientInfo.name);
-    console.log('[Weekly Summary] 周范围:', weekRange.startDate, '至', weekRange.endDate);
+    console.log('[Weekly Summary] 日期范围:', startDate, '至', endDate);
+    console.log('[Weekly Summary] 汇总类型:', summaryType);
+    if (summaryName) console.log('[Weekly Summary] 汇总名称:', summaryName);
     console.log('[Weekly Summary] 食谱组数量:', mealGroups.length);
     console.log('[Weekly Summary] 总照片数:', totalPhotos);
     const startTime = Date.now();
@@ -506,7 +466,7 @@ export async function POST(
     const summaryData = {
       ...summary,
       weekRange: weekData.weekRange,
-      isPartialWeek: weekData.isPartial, // 标记是否为部分周数据
+      isPartialWeek: weekData.isPartial,
       recordedDays: weekData.recordedDays,
       totalDaysExpected: weekData.totalDaysInWeek,
       statistics: {
@@ -518,42 +478,35 @@ export async function POST(
       },
     };
 
-    // 如果是强制重新生成，先删除旧的
-    if (validatedData.forceRegenerate) {
-      await prisma.weeklyDietSummary.deleteMany({
-        where: {
-          clientId,
-          weekStartDate: weekRange.startDate,
-        },
-      });
+    // 准备数据库记录数据
+    const summaryInput: any = {
+      clientId,
+      startDate,
+      endDate,
+      summaryType,
+      summaryName,
+      mealGroupIds: JSON.stringify(mealGroups.map((g) => g.id)),
+      summary: JSON.stringify(summaryData),
+      recommendationId: latestRecommendation.id,
+      // 为了前端显示统一，始终设置 weekStartDate 和 weekEndDate
+      weekStartDate: startDate,
+      weekEndDate: endDate,
+    };
+
+    // 如果是周类型，添加周相关信息
+    if (summaryType === 'week' && validatedData.weekStartDate) {
+      const targetDate = new Date(validatedData.weekStartDate);
+      const weekRange = getWeekRange(targetDate);
+      // 覆盖为周范围（周类型使用计算出的周范围）
+      summaryInput.weekStartDate = weekRange.startDate;
+      summaryInput.weekEndDate = weekRange.endDate;
+      summaryInput.weekNumber = weekRange.weekNumber;
+      summaryInput.year = weekRange.year;
     }
 
-    // 使用 upsert 来避免并发冲突
-    const newSummary = await prisma.weeklyDietSummary.upsert({
-      where: {
-        clientId_weekStartDate: {
-          clientId,
-          weekStartDate: weekRange.startDate,
-        },
-      },
-      create: {
-        clientId,
-        weekStartDate: weekRange.startDate,
-        weekEndDate: weekRange.endDate,
-        weekNumber: weekRange.weekNumber,
-        year: weekRange.year,
-        mealGroupIds: JSON.stringify(mealGroups.map((g) => g.id)),
-        summary: JSON.stringify(summaryData),
-        recommendationId: latestRecommendation.id,
-      },
-      update: {
-        weekEndDate: weekRange.endDate,
-        weekNumber: weekRange.weekNumber,
-        year: weekRange.year,
-        mealGroupIds: JSON.stringify(mealGroups.map((g) => g.id)),
-        summary: JSON.stringify(summaryData),
-        recommendationId: latestRecommendation.id,
-      },
+    // 创建新的汇总记录（不再使用 upsert，改为直接 create）
+    const newSummary = await prisma.weeklyDietSummary.create({
+      data: summaryInput,
     });
 
     logger.apiSuccess('POST', `/api/clients/${clientId}/weekly-diet-summary`, 'Weekly diet summary generated');
@@ -597,22 +550,19 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
-    const year = searchParams.get('year');
-
-    const whereClause: any = { clientId };
-    if (year) {
-      whereClause.year = parseInt(year);
-    }
 
     const summaries = await prisma.weeklyDietSummary.findMany({
-      where: whereClause,
+      where: { clientId },
       orderBy: [
-        { year: 'desc' },
-        { weekNumber: 'desc' },
+        { startDate: 'desc' },
       ],
       take: limit,
       select: {
         id: true,
+        startDate: true,
+        endDate: true,
+        summaryName: true,
+        summaryType: true,
         weekStartDate: true,
         weekEndDate: true,
         weekNumber: true,
@@ -625,8 +575,18 @@ export async function GET(
 
     // 解析 summary JSON
     const summariesWithParsedData = summaries.map((s) => ({
-      ...s,
+      id: s.id,
+      startDate: s.startDate,
+      endDate: s.endDate,
+      summaryName: s.summaryName,
+      summaryType: s.summaryType,
+      weekStartDate: s.weekStartDate,
+      weekEndDate: s.weekEndDate,
+      weekNumber: s.weekNumber,
+      year: s.year,
       summary: JSON.parse(s.summary),
+      generatedAt: s.generatedAt,
+      updatedAt: s.updatedAt,
     }));
 
     logger.apiSuccess('GET', `/api/clients/${clientId}/weekly-diet-summary`, `Found ${summaries.length} summaries`);
