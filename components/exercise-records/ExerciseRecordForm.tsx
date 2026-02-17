@@ -198,27 +198,21 @@ export default function ExerciseRecordForm({
       }
 
       // Update form with AI extracted data
-      if (data.analysis) {
+      // Merge both data.analysis and data.record, prioritizing data.record (from database)
+      if (data.analysis || data.record) {
         const analysis = data.analysis;
-        console.log('[Exercise Form] Updating form with analysis:', analysis);
-        setFormData((prev) => ({
-          ...prev,
-          date: analysis.date || prev.date,
-          type: analysis.exerciseType || prev.type,
-          duration: analysis.duration?.minutes || prev.duration,
-          intensity: analysis.intensity || prev.intensity,
-          notes: analysis.description || prev.notes,
-        }));
-      }
+        const record = data.record;
 
-      if (data.record) {
-        console.log('[Exercise Form] Updating form with record data:', data.record);
+        console.log('[Exercise Form] Updating form with data:', { analysis, record });
+
         setFormData((prev) => ({
           ...prev,
-          date: data.record.date || prev.date,
-          type: data.record.type || prev.type,
-          duration: data.record.duration || prev.duration,
-          intensity: data.record.intensity || prev.intensity,
+          // Prioritize record values (already saved to DB) over analysis
+          date: record?.date || analysis?.date || prev.date,
+          type: record?.type || analysis?.exerciseType || prev.type,
+          duration: record?.duration || analysis?.duration?.minutes || prev.duration,
+          intensity: record?.intensity || analysis?.intensity || prev.intensity,
+          notes: analysis?.description || prev.notes,
         }));
       }
     } catch (error) {

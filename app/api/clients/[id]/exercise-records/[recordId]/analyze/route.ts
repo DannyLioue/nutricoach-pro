@@ -52,19 +52,11 @@ export async function POST(
         analysis: JSON.parse(record.analysis),
         record: {
           id: record.id,
+          date: record.date.toISOString().split('T')[0],
           type: record.type,
           duration: record.duration,
           intensity: record.intensity,
         },
-      });
-    }
-
-    // If forcing re-analysis, clear the existing analysis
-    if (forceReanalysis && record.analysis) {
-      console.log('[Exercise Analysis] Force re-analysis requested, clearing existing analysis');
-      await prisma.exerciseRecord.update({
-        where: { id: recordId },
-        data: { analysis: null, analyzedAt: null },
       });
     }
 
