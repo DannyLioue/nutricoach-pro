@@ -46,3 +46,8 @@ prisma/*.db-journal
 
 # uploads
 /public/uploads
+
+# temporary test scripts
+check_summary_db.ts
+proxy-test.mjs
+app/api/test/
