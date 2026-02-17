@@ -11,6 +11,7 @@ import {
   CONSULTATION_ANALYSIS_PROMPT,
   EVALUATE_NUTRITIONIST_PLAN_PROMPT,
   WEEKLY_DIET_SUMMARY_PROMPT,
+  EXERCISE_SCREENSHOT_ANALYSIS_PROMPT,
 } from './prompts';
 import { getModelForTask, getDefaultModelForTask } from './model-config';
 import type { AITaskType } from '@/types/ai-config';
@@ -864,5 +865,77 @@ export async function generateWeeklyDietSummary(
   } catch (error) {
     console.error('Weekly diet summary generation error:', error);
     throw new Error('周饮食汇总生成失败：' + (error as Error).message);
+  }
+}
+
+/**
+ * Analyzes exercise screenshot using Vision AI
+ *
+ * Takes a screenshot from a fitness app (GARMIN, Keep, etc.) and extracts exercise data
+ * including exercise type, duration, intensity, distance, calories, heart rate, and pace.
+ *
+ * @param imageBase64 - Base64 encoded image data of the exercise screenshot
+ * @param notes - Optional notes/annotations about the exercise
+ * @returns Promise resolving to exercise analysis with type, duration, intensity, etc.
+ * @throws Error if image analysis fails
+ *
+ * @example
+ * const analysis = await analyzeExerciseScreenshot(
+ *   'data:image/jpeg;base64,/9j/4AAQ...',
+ *   '晨跑，状态不错'
+ * );
+ */
+export async function analyzeExerciseScreenshot(
+  imageBase64: string,
+  notes?: string | null
+): Promise<{
+  exerciseType: string | null;
+  duration?: { minutes: number };
+  intensity?: string;
+  distance?: number;
+  calories?: number;
+  heartRate?: { average?: number; max?: number };
+  pace?: { minKm?: string; speed?: number };
+  description?: string;
+  error?: string;
+}> {
+  try {
+    const prompt = EXERCISE_SCREENSHOT_ANALYSIS_PROMPT(notes);
+
+    const model = await getModel('diet-photo-analysis');
+
+    const { text } = await generateText({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: prompt,
+            },
+            {
+              type: 'image',
+              image: imageBase64,
+            },
+          ],
+        },
+      ],
+    });
+
+    const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    const result = JSON.parse(cleanText);
+
+    console.log('[Exercise Screenshot Analysis] Result:', {
+      exerciseType: result.exerciseType,
+      duration: result.duration?.minutes,
+      intensity: result.intensity,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Exercise screenshot analysis error:', error);
+    throw new Error('运动截图分析失败：' + (error as Error).message);
   }
 }
