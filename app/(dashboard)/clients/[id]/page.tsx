@@ -18,7 +18,8 @@ import {
 import CreateSummaryModal from '@/components/weekly-diet-summary/CreateSummaryModal';
 import UpdateSummaryConfirmDialog from '@/components/weekly-diet-summary/UpdateSummaryConfirmDialog';
 import { DietRecordUpload, DietTimelineView } from '@/components/diet-records';
-import { Camera, FileText, Heart, BookOpen, Edit, UtensilsCrossed, Trash2, MessageSquare, Plus, Sparkles, ClipboardCheck, Calendar, X, Loader2 } from 'lucide-react';
+import { ExerciseTimelineView } from '@/components/exercise-records';
+import { Camera, FileText, Heart, BookOpen, Edit, UtensilsCrossed, Trash2, MessageSquare, Plus, Sparkles, ClipboardCheck, Calendar, X, Loader2, Dumbbell } from 'lucide-react';
 import type { DietAnalysis, DietPhotoMealGroup, DietPhotoInGroup, WeeklyDietSummary } from '@/types';
 import MealGroupUpload from '@/components/MealGroupUpload';
 import MealGroupCard from '@/components/MealGroupCard';
@@ -66,7 +67,7 @@ interface Consultation {
   createdAt: string;
 }
 
-type TabType = 'profile' | 'consultations' | 'diet-records' | 'health-reports' | 'interventions' | 'plan-evaluation';
+type TabType = 'profile' | 'consultations' | 'diet-records' | 'exercise-records' | 'health-reports' | 'interventions' | 'plan-evaluation';
 type DietRecordsSubTab = 'photos' | 'meal-groups';
 
 export default function ClientDetailPage() {
@@ -98,6 +99,9 @@ export default function ClientDetailPage() {
   const [forceRegenerate, setForceRegenerate] = useState(false); // 是否强制重新生成所有食谱组
   const [copyMealGroup, setCopyMealGroup] = useState<DietPhotoMealGroup | null>(null);
 
+  // Exercise records state
+  const [exerciseRecords, setExerciseRecords] = useState<any[]>([]);
+
   // 更新汇总确认对话框状态
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [updatingSummaryId, setUpdatingSummaryId] = useState<string | null>(null);
@@ -107,7 +111,7 @@ export default function ClientDetailPage() {
   // Sync activeTab with URL parameter
   useEffect(() => {
     const tab = searchParams.get('tab') as TabType | null;
-    if (tab && ['profile', 'consultations', 'diet-records', 'health-reports', 'interventions', 'plan-evaluation'].includes(tab)) {
+    if (tab && ['profile', 'consultations', 'diet-records', 'exercise-records', 'health-reports', 'interventions', 'plan-evaluation'].includes(tab)) {
       setActiveTab(tab);
     }
     const mealGroupId = searchParams.get('mealGroupId');
@@ -124,6 +128,7 @@ export default function ClientDetailPage() {
     fetchEvaluations();
     fetchWeeklySummaries();
     fetchHasRecommendation();
+    fetchExerciseRecords();
   }, [clientId]);
 
   // Update URL when tab changes
@@ -637,6 +642,64 @@ export default function ClientDetailPage() {
     }
   };
 
+  const fetchExerciseRecords = async () => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/exercise-records`);
+      const data = await res.json();
+
+      if (res.ok) {
+        setExerciseRecords(data.exerciseRecords || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch exercise records:', err);
+    }
+  };
+
+  const handleCreateExerciseRecord = async (data: any) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/exercise-records`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || '创建失败');
+      }
+
+      await fetchExerciseRecords();
+    } catch (err: any) {
+      alert('创建运动记录失败：' + err.message);
+      throw err;
+    }
+  };
+
+  const handleDeleteExerciseRecord = async (recordId: string) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/exercise-records/${recordId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '删除失败');
+      }
+
+      // 从列表中移除
+      setExerciseRecords(exerciseRecords.filter(r => r.id !== recordId));
+    } catch (err: any) {
+      alert('删除失败：' + err.message);
+      throw err;
+    }
+  };
+
+  const handleEditExerciseRecord = (record: any) => {
+    // TODO: Implement edit functionality
+    console.log('Edit exercise record:', record);
+  };
+
   const handleDeleteSummary = async (summaryId: string) => {
     if (!confirm('确定要删除这条汇总记录吗？此操作不可恢复。')) {
       return;
@@ -715,6 +778,7 @@ export default function ClientDetailPage() {
     { id: 'profile' as TabType, label: '档案', icon: FileText },
     { id: 'consultations' as TabType, label: '咨询记录', icon: MessageSquare },
     { id: 'diet-records' as TabType, label: '饮食记录', icon: Camera },
+    { id: 'exercise-records' as TabType, label: '运动记录', icon: Dumbbell },
     { id: 'health-reports' as TabType, label: '体检报告', icon: Heart },
     { id: 'interventions' as TabType, label: '干预方案', icon: BookOpen },
     { id: 'plan-evaluation' as TabType, label: '计划评估', icon: ClipboardCheck },
@@ -1365,6 +1429,19 @@ export default function ClientDetailPage() {
             <div className="space-y-6">
               <h3 className="font-display text-xl font-semibold mb-4" style={{ color: 'var(--color-primary-800)' }}>体检报告</h3>
               <ClientReportsList clientId={clientId} />
+            </div>
+          )}
+
+          {activeTab === 'exercise-records' && (
+            <div className="space-y-6">
+              <h3 className="font-display text-xl font-semibold mb-4" style={{ color: 'var(--color-primary-800)' }}>运动记录</h3>
+              <ExerciseTimelineView
+                clientId={clientId}
+                records={exerciseRecords}
+                onCreate={handleCreateExerciseRecord}
+                onDelete={handleDeleteExerciseRecord}
+                onEdit={handleEditExerciseRecord}
+              />
             </div>
           )}
 
