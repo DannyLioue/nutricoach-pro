@@ -889,6 +889,7 @@ export async function analyzeExerciseScreenshot(
   imageBase64: string,
   notes?: string | null
 ): Promise<{
+  date?: string;
   exerciseType: string | null;
   duration?: { minutes: number };
   intensity?: string;
@@ -928,6 +929,7 @@ export async function analyzeExerciseScreenshot(
     const result = JSON.parse(cleanText);
 
     console.log('[Exercise Screenshot Analysis] Result:', {
+      date: result.date,
       exerciseType: result.exerciseType,
       duration: result.duration?.minutes,
       intensity: result.intensity,

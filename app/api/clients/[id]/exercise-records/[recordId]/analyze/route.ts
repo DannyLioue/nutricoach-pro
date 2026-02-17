@@ -69,13 +69,21 @@ export async function POST(
       record.notes
     );
 
+    // Prepare update data
+    const updateData: any = {
+      analysis: JSON.stringify(analysis),
+      analyzedAt: new Date(),
+    };
+
+    // Update date if AI recognized it
+    if (analysis.date) {
+      updateData.date = new Date(analysis.date + 'T00:00:00');
+    }
+
     // Update the record with analysis results
     const updatedRecord = await prisma.exerciseRecord.update({
       where: { id: recordId },
-      data: {
-        analysis: JSON.stringify(analysis),
-        analyzedAt: new Date(),
-      },
+      data: updateData,
     });
 
     // Return the analysis results
@@ -84,6 +92,7 @@ export async function POST(
       analysis,
       record: {
         id: updatedRecord.id,
+        date: updatedRecord.date.toISOString().split('T')[0],
         type: analysis.exerciseType || updatedRecord.type,
         duration: analysis.duration?.minutes || updatedRecord.duration,
         intensity: analysis.intensity || updatedRecord.intensity,

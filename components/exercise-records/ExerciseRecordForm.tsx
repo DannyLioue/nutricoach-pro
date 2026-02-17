@@ -148,6 +148,7 @@ export default function ExerciseRecordForm({
         const analysis = data.analysis;
         setFormData((prev) => ({
           ...prev,
+          date: analysis.date || prev.date,
           type: analysis.exerciseType || prev.type,
           duration: analysis.duration?.minutes || prev.duration,
           intensity: analysis.intensity || prev.intensity,
@@ -158,6 +159,7 @@ export default function ExerciseRecordForm({
       if (data.record) {
         setFormData((prev) => ({
           ...prev,
+          date: data.record.date || prev.date,
           type: data.record.type || prev.type,
           duration: data.record.duration || prev.duration,
           intensity: data.record.intensity || prev.intensity,
