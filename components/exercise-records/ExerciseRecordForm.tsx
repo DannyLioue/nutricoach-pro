@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { X, Camera, Loader2, Sparkles } from 'lucide-react';
+import { X, Camera, Loader2, Sparkles, Upload } from 'lucide-react';
 
 interface ExerciseRecordFormProps {
   initialData?: {
@@ -44,13 +44,11 @@ export default function ExerciseRecordForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Handle file selection and convert to base64
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Process file (shared by both select and drop)
+  const processFile = (file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       setAnalyzeError('请选择图片文件');
@@ -72,6 +70,37 @@ export default function ExerciseRecordForm({
       setImageUrl(base64);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Handle file selection and convert to base64
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
   };
 
   // Handle image removal
@@ -163,10 +192,19 @@ export default function ExerciseRecordForm({
         </label>
         <div className="space-y-2">
           {!imageUrl ? (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
-              <Camera className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
+                isDragging
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-300 hover:border-purple-400'
+              }`}
+            >
+              <Upload className="h-12 w-12 mx-auto text-gray-400 mb-2" />
               <p className="text-sm text-gray-600 mb-3">
-                上传运动APP截图（GARMIN、Keep等）
+                拖拽图片到这里，或点击下方按钮选择
               </p>
               <input
                 ref={fileInputRef}
