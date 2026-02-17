@@ -36,6 +36,14 @@
   - 柔韧性训练建议
   - 配套运动视频推荐
 
+### 运动记录管理
+- 完整的运动记录CRUD功能
+- 支持上传运动APP截图（GARMIN、Keep等）
+- AI 自动识别运动数据（类型、时长、强度）
+- 时间线视图展示，按日期分组
+- 运动统计分析（总时长、总次数）
+- 运动处方调整建议
+
 - **生活方式干预**
   - 睡眠管理
   - 饮水建议
@@ -87,6 +95,7 @@
 |------|------|------|
 | **Google Gemini** | 2.5 Pro | 主 AI 模型（多模态） |
 | **Google Gemini** | 2.5 Flash | 快速视觉分析 |
+| **Alibaba Qwen** | 通义千问 | 备用 AI 模型 |
 | **Vercel AI SDK** | 4.x | AI 集成框架 |
 
 ### 认证
@@ -122,6 +131,7 @@ nutricoach-pro/
 │   ├── analysis/                    # 分析相关组件
 │   ├── consultation/                # 咨询记录组件
 │   ├── diet-records/                # 饮食记录组件
+│   ├── exercise-records/            # 运动记录组件
 │   ├── recommendations/             # 建议展示组件
 │   ├── weekly-diet-summary/         # 周汇总组件
 │   ├── pdf/                         # PDF 生成组件
@@ -129,6 +139,7 @@ nutricoach-pro/
 ├── lib/                             # 工具库
 │   ├── ai/                          # AI 服务
 │   │   ├── gemini.ts               # Gemini API 集成
+│   │   ├── qwen.ts                 # 通义千问 API 集成
 │   │   └── prompts.ts              # AI 提示词模板
 │   ├── pdf/                         # PDF 生成
 │   ├── auth/                        # 认证工具
@@ -164,6 +175,10 @@ NEXTAUTH_URL="http://localhost:3000"
 
 # Gemini AI
 GEMINI_API_KEY="your-gemini-api-key"
+
+# Alibaba Qwen (可选，作为备用)
+QWEN_API_KEY="your-qwen-api-key"
+QWEN_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
 ```
 
 ### 3. 初始化数据库
@@ -194,6 +209,8 @@ npm run dev
 - [x] 饮食照片分析（支持照片和文字描述）
 - [x] 周饮食汇总
 - [x] 咨询记录管理
+- [x] 运动记录管理（含AI截图识别）
+- [x] 阿里云通义千问集成（备用AI）
 - [x] PDF 报告导出
 - [x] 移动端优化
 
@@ -245,6 +262,7 @@ model Client {
   dietPhotos       DietPhoto[]
   mealGroups       DietPhotoMealGroup[]
   weeklySummaries  WeeklyDietSummary[]
+  exerciseRecords  ExerciseRecord[]
 }
 
 model Report {
@@ -306,6 +324,21 @@ model WeeklyDietSummary {
   weekEndDate     String
   summary         String
   generatedAt     DateTime @default(now())
+}
+
+model ExerciseRecord {
+  id              String   @id @default(cuid())
+  clientId        String
+  date            DateTime
+  type            String
+  duration        Int
+  intensity       String?
+  notes           String?
+  imageUrl        String?
+  analysis        String?
+  analyzedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 ```
 
