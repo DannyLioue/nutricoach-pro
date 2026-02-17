@@ -67,7 +67,8 @@ export default function ExerciseTimelineView({
 }: ExerciseTimelineViewProps) {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
-  const [newRecordId, setNewRecordId] = useState<string | null>(null);
+  const [editingRecord, setEditingRecord] = useState<ExerciseRecord | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   // 按日期分组记录
   const groupedRecords = useMemo(() => {
@@ -104,9 +105,54 @@ export default function ExerciseTimelineView({
     });
   };
 
+  const handleEdit = (record: ExerciseRecord) => {
+    setEditingRecord(record);
+    setShowForm(true);
+    setIsCreating(false);
+  };
+
+  const handleCreateNew = () => {
+    setEditingRecord(null);
+    setIsCreating(true);
+    setShowForm(true);
+  };
+
+  const handleFormSubmit = async (data: Omit<ExerciseRecord, 'id'> & { imageUrl?: string }) => {
+    if (editingRecord) {
+      // 编辑模式：调用父组件的更新逻辑
+      if (onEdit) {
+        await onEdit({ ...editingRecord, ...data });
+      }
+    } else {
+      // 创建模式：调用父组件的创建逻辑
+      if (onCreate) {
+        await onCreate(data);
+      }
+    }
+    setShowForm(false);
+    setEditingRecord(null);
+    setIsCreating(false);
+  };
+
+  const handleFormCancel = () => {
+    setShowForm(false);
+    setEditingRecord(null);
+    setIsCreating(false);
+  };
+
   // 计算总时长和总次数
   const totalDuration = records.reduce((sum, r) => sum + r.duration, 0);
   const totalRecords = records.length;
+
+  // 格式化总时长显示
+  const formatTotalDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return `${hours}小时${mins}分钟`;
+    }
+    return `${mins}分钟`;
+  };
 
   return (
     <div className="space-y-4">
@@ -124,7 +170,7 @@ export default function ExerciseTimelineView({
                   共 <span className="font-bold">{totalRecords}</span> 次记录
                 </div>
                 <div className="text-sm text-purple-700">
-                  总时长 <span className="font-bold">{Math.round(totalDuration / 60)}小时{totalDuration % 60}分钟</span>
+                  总时长 <span className="font-bold">{formatTotalDuration(totalDuration)}</span>
                 </div>
               </>
             )}
@@ -136,13 +182,13 @@ export default function ExerciseTimelineView({
           </div>
           {onCreate && (
             <button
-              onClick={() => setShowForm(!showForm)}
+              onClick={handleCreateNew}
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2 text-sm font-medium"
             >
               {showForm ? (
                 <>
                   <ChevronDown className="h-4 w-4" />
-                  收起
+                  {editingRecord ? '编辑中' : '收起'}
                 </>
               ) : (
                 <>
@@ -155,19 +201,26 @@ export default function ExerciseTimelineView({
         </div>
       </div>
 
-      {/* 添加记录表单 */}
-      {showForm && onCreate && (
+      {/* 添加/编辑记录表单 */}
+      {showForm && (onCreate || editingRecord) && (
         <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            {editingRecord ? '编辑运动记录' : '添加运动记录'}
+          </h3>
           <ExerciseRecordForm
-            onSubmit={async (data) => {
-              await onCreate(data);
-              // Note: For new records, the page component should handle
-              // fetching the new record ID if AI analysis is needed
-              setShowForm(false);
-            }}
-            onCancel={() => setShowForm(false)}
+            initialData={editingRecord ? {
+              date: editingRecord.date,
+              type: editingRecord.type,
+              duration: editingRecord.duration,
+              intensity: editingRecord.intensity,
+              notes: editingRecord.notes,
+              imageUrl: editingRecord.imageUrl,
+              analysis: editingRecord.analysis,
+            } : undefined}
+            recordId={editingRecord?.id}
             clientId={clientId}
-            recordId={newRecordId || undefined}
+            onSubmit={handleFormSubmit}
+            onCancel={handleFormCancel}
           />
         </div>
       )}
@@ -216,7 +269,7 @@ export default function ExerciseTimelineView({
                       record={record}
                       clientId={clientId}
                       onDelete={onDelete}
-                      onEdit={onEdit}
+                      onEdit={handleEdit}
                     />
                   ))}
                 </div>

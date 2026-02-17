@@ -695,9 +695,32 @@ export default function ClientDetailPage() {
     }
   };
 
-  const handleEditExerciseRecord = (record: any) => {
-    // TODO: Implement edit functionality
-    console.log('Edit exercise record:', record);
+  const handleEditExerciseRecord = async (record: any) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/exercise-records/${record.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: record.date.split('T')[0],
+          type: record.type,
+          duration: record.duration,
+          intensity: record.intensity,
+          notes: record.notes,
+          imageUrl: record.imageUrl,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '更新失败');
+      }
+
+      await fetchExerciseRecords();
+    } catch (err: any) {
+      alert('更新运动记录失败：' + err.message);
+      throw err;
+    }
   };
 
   const handleDeleteSummary = async (summaryId: string) => {
