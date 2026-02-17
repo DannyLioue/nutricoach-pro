@@ -353,17 +353,33 @@ export default function ExerciseRecordForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             运动类型 *
           </label>
-          <select
+          <input
+            list="exercise-types"
+            type="text"
             value={formData.type}
             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
             required
-          >
-            <option value="有氧">有氧运动</option>
-            <option value="力量">力量训练</option>
-            <option value="柔韧">柔韧性训练</option>
-            <option value="其他">其他</option>
-          </select>
+            placeholder="如：跑步、游泳、室内划船等"
+          />
+          <datalist id="exercise-types">
+            <option value="有氧" />
+            <option value="力量" />
+            <option value="柔韧" />
+            <option value="跑步" />
+            <option value="骑行" />
+            <option value="游泳" />
+            <option value="健身" />
+            <option value="力量训练" />
+            <option value="瑜伽" />
+            <option value="室内划船" />
+            <option value="跳绳" />
+            <option value="篮球" />
+            <option value="足球" />
+            <option value="羽毛球" />
+            <option value="登山" />
+            <option value="徒步" />
+          </datalist>
         </div>
       </div>
 
@@ -375,9 +391,10 @@ export default function ExerciseRecordForm({
           </label>
           <input
             type="number"
+            step="0.01"
             value={formData.duration}
             onChange={(e) =>
-              setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })
+              setFormData({ ...formData, duration: parseFloat(e.target.value) || 0 })
             }
             min="1"
             max="600"

@@ -7,7 +7,7 @@ import { z } from 'zod';
 // 验证 schema
 const createExerciseRecordSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式应为 YYYY-MM-DD'),
-  type: z.enum(['有氧', '力量', '柔韧', '其他']),
+  type: z.string().min(1, '运动类型不能为空'),
   duration: z.number().min(1, '时长至少1分钟').max(600, '时长不能超过600分钟'),
   intensity: z.enum(['低', '中', '高']).optional(),
   notes: z.string().optional(),
