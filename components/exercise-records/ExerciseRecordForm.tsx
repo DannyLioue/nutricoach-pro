@@ -170,12 +170,15 @@ export default function ExerciseRecordForm({
 
       console.log('[Exercise Form] Calling analyze API with recordId:', recordIdToUse);
 
+      // If editing an existing record, force re-analysis
+      const requestBody = currentRecordId ? { force: true } : {};
+
       const response = await fetch(
         `/api/clients/${clientId}/exercise-records/${recordIdToUse}/analyze`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -186,6 +189,7 @@ export default function ExerciseRecordForm({
         status: response.status,
         hasAnalysis: !!data.analysis,
         hasRecord: !!data.record,
+        message: data.message,
         data: data,
       });
 
@@ -308,7 +312,7 @@ export default function ExerciseRecordForm({
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
-                  AI 识别截图数据
+                  AI 重新分析
                 </>
               )}
             </button>
@@ -324,7 +328,7 @@ export default function ExerciseRecordForm({
           {/* 分析提示 */}
           {imageUrl && !isAnalyzing && !analyzeError && (
             <div className="text-sm text-purple-600 bg-purple-50 px-3 py-2 rounded-md">
-              💡 上传截图后，点击"AI 识别截图数据"自动填充运动信息
+              💡 上传截图后，点击"AI 重新分析"自动填充运动信息
             </div>
           )}
         </div>

@@ -6,6 +6,8 @@ import { analyzeExerciseScreenshot } from '@/lib/ai/gemini';
 /**
  * POST /api/clients/[id]/exercise-records/[recordId]/analyze
  * Analyze exercise screenshot using AI
+ *
+ * Body: { force?: boolean } - If true, force re-analysis even if already analyzed
  */
 export async function POST(
   request: NextRequest,
@@ -19,6 +21,10 @@ export async function POST(
 
   try {
     const { id: clientId, recordId } = await params;
+
+    // Parse request body to check for force flag
+    const body = await request.json().catch(() => ({}));
+    const forceReanalysis = body.force === true;
 
     // Fetch the exercise record
     const record = await prisma.exerciseRecord.findFirst({
@@ -37,8 +43,8 @@ export async function POST(
       return NextResponse.json({ error: '该记录没有图片，无法分析' }, { status: 400 });
     }
 
-    // Check if already analyzed
-    if (record.analysis) {
+    // Check if already analyzed (only return cache if not forcing re-analysis)
+    if (record.analysis && !forceReanalysis) {
       console.log('[Exercise Analysis] Record already analyzed, returning cached result');
       return NextResponse.json({
         success: true,
@@ -50,6 +56,15 @@ export async function POST(
           duration: record.duration,
           intensity: record.intensity,
         },
+      });
+    }
+
+    // If forcing re-analysis, clear the existing analysis
+    if (forceReanalysis && record.analysis) {
+      console.log('[Exercise Analysis] Force re-analysis requested, clearing existing analysis');
+      await prisma.exerciseRecord.update({
+        where: { id: recordId },
+        data: { analysis: null, analyzedAt: null },
       });
     }
 
