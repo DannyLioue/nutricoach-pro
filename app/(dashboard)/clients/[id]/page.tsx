@@ -676,6 +676,30 @@ export default function ClientDetailPage() {
     }
   };
 
+  const handleCreateExerciseRecordAndReturnId = async (data: any) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/exercise-records`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || '创建失败');
+      }
+
+      // Refresh the list
+      await fetchExerciseRecords();
+
+      // Return the new record ID
+      return result.exerciseRecord.id;
+    } catch (err: any) {
+      throw err; // Don't show alert, let the form handle errors
+    }
+  };
+
   const handleDeleteExerciseRecord = async (recordId: string) => {
     try {
       const res = await fetch(`/api/clients/${clientId}/exercise-records/${recordId}`, {
@@ -1462,6 +1486,7 @@ export default function ClientDetailPage() {
                 clientId={clientId}
                 records={exerciseRecords}
                 onCreate={handleCreateExerciseRecord}
+                onCreateAndReturnId={handleCreateExerciseRecordAndReturnId}
                 onDelete={handleDeleteExerciseRecord}
                 onEdit={handleEditExerciseRecord}
               />

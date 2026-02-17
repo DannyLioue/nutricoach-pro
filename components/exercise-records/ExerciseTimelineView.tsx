@@ -27,6 +27,7 @@ interface ExerciseTimelineViewProps {
   onDelete?: (recordId: string) => Promise<void>;
   onEdit?: (record: ExerciseRecord) => void;
   onCreate?: (data: Omit<ExerciseRecord, 'id'> & { imageUrl?: string }) => Promise<void>;
+  onCreateAndReturnId?: (data: Omit<ExerciseRecord, 'id'> & { imageUrl?: string }) => Promise<string>;
 }
 
 function formatDate(dateStr: string): string {
@@ -64,6 +65,7 @@ export default function ExerciseTimelineView({
   onDelete,
   onEdit,
   onCreate,
+  onCreateAndReturnId,
 }: ExerciseTimelineViewProps) {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
@@ -220,6 +222,7 @@ export default function ExerciseTimelineView({
             recordId={editingRecord?.id}
             clientId={clientId}
             onSubmit={handleFormSubmit}
+            onCreateAndReturnId={onCreateAndReturnId}
             onCancel={handleFormCancel}
           />
         </div>

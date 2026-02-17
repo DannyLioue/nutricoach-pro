@@ -23,6 +23,14 @@ interface ExerciseRecordFormProps {
     notes?: string;
     imageUrl?: string;
   }) => Promise<void>;
+  onCreateAndReturnId?: (data: {
+    date: string;
+    type: string;
+    duration: number;
+    intensity?: string;
+    notes?: string;
+    imageUrl?: string;
+  }) => Promise<string>; // Returns the new record ID
   onCancel: () => void;
 }
 
@@ -31,6 +39,7 @@ export default function ExerciseRecordForm({
   recordId,
   clientId,
   onSubmit,
+  onCreateAndReturnId,
   onCancel,
 }: ExerciseRecordFormProps) {
   const [formData, setFormData] = useState({
@@ -45,6 +54,7 @@ export default function ExerciseRecordForm({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [currentRecordId, setCurrentRecordId] = useState(recordId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Process file (shared by both select and drop)
@@ -119,8 +129,8 @@ export default function ExerciseRecordForm({
       return;
     }
 
-    if (!recordId || !clientId) {
-      setAnalyzeError('无法分析：缺少记录ID或客户ID');
+    if (!clientId) {
+      setAnalyzeError('无法分析：缺少客户ID');
       return;
     }
 
@@ -128,8 +138,31 @@ export default function ExerciseRecordForm({
     setAnalyzeError('');
 
     try {
+      let recordIdToUse = currentRecordId;
+
+      // If this is a new record (no recordId yet), create it first
+      if (!recordIdToUse) {
+        if (!onCreateAndReturnId) {
+          setAnalyzeError('无法分析：请先填写必填信息并保存记录');
+          return;
+        }
+
+        // Create the record first to get an ID
+        recordIdToUse = await onCreateAndReturnId({
+          date: formData.date,
+          type: formData.type,
+          duration: formData.duration,
+          intensity: formData.intensity,
+          notes: formData.notes,
+          imageUrl: imageUrl,
+        });
+
+        // Set the new record ID for future use
+        setCurrentRecordId(recordIdToUse);
+      }
+
       const response = await fetch(
-        `/api/clients/${clientId}/exercise-records/${recordId}/analyze`,
+        `/api/clients/${clientId}/exercise-records/${recordIdToUse}/analyze`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
