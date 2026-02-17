@@ -140,12 +140,17 @@ export default function ExerciseRecordForm({
     try {
       let recordIdToUse = currentRecordId;
 
+      console.log('[Exercise Form] Starting analysis, currentRecordId:', currentRecordId);
+
       // If this is a new record (no recordId yet), create it first
       if (!recordIdToUse) {
         if (!onCreateAndReturnId) {
           setAnalyzeError('无法分析：请先填写必填信息并保存记录');
+          setIsAnalyzing(false);
           return;
         }
+
+        console.log('[Exercise Form] Creating new record first...');
 
         // Create the record first to get an ID
         recordIdToUse = await onCreateAndReturnId({
@@ -157,9 +162,13 @@ export default function ExerciseRecordForm({
           imageUrl: imageUrl,
         });
 
+        console.log('[Exercise Form] New record created with ID:', recordIdToUse);
+
         // Set the new record ID for future use
         setCurrentRecordId(recordIdToUse);
       }
+
+      console.log('[Exercise Form] Calling analyze API with recordId:', recordIdToUse);
 
       const response = await fetch(
         `/api/clients/${clientId}/exercise-records/${recordIdToUse}/analyze`,
@@ -172,6 +181,14 @@ export default function ExerciseRecordForm({
 
       const data = await response.json();
 
+      console.log('[Exercise Form] Analysis API response:', {
+        ok: response.ok,
+        status: response.status,
+        hasAnalysis: !!data.analysis,
+        hasRecord: !!data.record,
+        data: data,
+      });
+
       if (!response.ok) {
         throw new Error(data.error || '分析失败');
       }
@@ -179,6 +196,7 @@ export default function ExerciseRecordForm({
       // Update form with AI extracted data
       if (data.analysis) {
         const analysis = data.analysis;
+        console.log('[Exercise Form] Updating form with analysis:', analysis);
         setFormData((prev) => ({
           ...prev,
           date: analysis.date || prev.date,
@@ -190,6 +208,7 @@ export default function ExerciseRecordForm({
       }
 
       if (data.record) {
+        console.log('[Exercise Form] Updating form with record data:', data.record);
         setFormData((prev) => ({
           ...prev,
           date: data.record.date || prev.date,

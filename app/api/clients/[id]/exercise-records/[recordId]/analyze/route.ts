@@ -39,9 +39,17 @@ export async function POST(
 
     // Check if already analyzed
     if (record.analysis) {
+      console.log('[Exercise Analysis] Record already analyzed, returning cached result');
       return NextResponse.json({
+        success: true,
         message: '该记录已分析',
         analysis: JSON.parse(record.analysis),
+        record: {
+          id: record.id,
+          type: record.type,
+          duration: record.duration,
+          intensity: record.intensity,
+        },
       });
     }
 
@@ -63,11 +71,20 @@ export async function POST(
     // Calculate age from birthDate
     const age = new Date().getFullYear() - new Date(client.birthDate).getFullYear();
 
+    console.log('[Exercise Analysis] Calling AI to analyze screenshot for record:', recordId);
+    console.log('[Exercise Analysis] Image URL length:', record.imageUrl?.length);
+
     // Call AI to analyze the screenshot
     const analysis = await analyzeExerciseScreenshot(
       record.imageUrl,
       record.notes
     );
+
+    console.log('[Exercise Analysis] AI analysis completed:', {
+      date: analysis.date,
+      exerciseType: analysis.exerciseType,
+      duration: analysis.duration?.minutes,
+    });
 
     // Prepare update data
     const updateData: any = {
