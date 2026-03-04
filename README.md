@@ -78,7 +78,7 @@
 |------|------|------|
 | **Next.js** | 16.1.1 | 全栈框架 (App Router + Turbopack) |
 | **TypeScript** | 5.x | 类型安全 |
-| **Tailwind CSS** | 3.x | 样式框架 |
+| **Tailwind CSS** | 4.x | 样式框架 |
 | **shadcn/ui** | Latest | UI 组件库 |
 | **Recharts** | 2.x | 数据可视化 |
 | **React Hook Form** | 7.x | 表单管理 |
