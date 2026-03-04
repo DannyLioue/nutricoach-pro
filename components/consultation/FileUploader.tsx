@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { Upload, X, FileAudio, FileImage, FileText, Loader2 } from 'lucide-react';
-import { validateAudioFile, validateImageFile, fileToBase64, formatFileSize, MAX_AUDIO_SIZE_MB, MAX_IMAGE_SIZE_MB } from '@/lib/utils/fileUtils';
+import { Upload, X, FileImage, FileText, Loader2 } from 'lucide-react';
+import { validateImageFile, fileToBase64, formatFileSize, MAX_IMAGE_SIZE_MB } from '@/lib/utils/fileUtils';
 import { validateTextFile, extractTextFromFile, getTextFileType } from '@/lib/utils/textFileUtils';
 
 interface UploadedFile {
@@ -15,7 +15,7 @@ interface UploadedFile {
 
 interface FileUploaderProps {
   onFilesChange: (files: UploadedFile[]) => void;
-  acceptedTypes: Array<'audio' | 'image' | 'text'>;
+  acceptedTypes: Array<'image' | 'text'>;
   maxFiles?: number;
   className?: string;
 }
@@ -36,9 +36,6 @@ export default function FileUploader({
 
   const getAcceptedFileTypes = () => {
     const types: string[] = [];
-    if (acceptedTypes.includes('audio')) {
-      types.push('audio/*');
-    }
     if (acceptedTypes.includes('image')) {
       types.push('image/*');
     }
@@ -50,9 +47,6 @@ export default function FileUploader({
 
   const getAcceptedTypesText = () => {
     const types: string[] = [];
-    if (acceptedTypes.includes('audio')) {
-      types.push('MP3、M4A、WAV、WEBM');
-    }
     if (acceptedTypes.includes('image')) {
       types.push('JPG、PNG、WEBP、GIF');
     }
@@ -64,9 +58,6 @@ export default function FileUploader({
 
   const getMaxSizeText = () => {
     const sizes: string[] = [];
-    if (acceptedTypes.includes('audio')) {
-      sizes.push(`音频${MAX_AUDIO_SIZE_MB}MB`);
-    }
     if (acceptedTypes.includes('image')) {
       sizes.push(`图片${MAX_IMAGE_SIZE_MB}MB`);
     }
@@ -82,9 +73,6 @@ export default function FileUploader({
   };
 
   const validateFile = (file: File) => {
-    if (acceptedTypes.includes('audio') && file.type.startsWith('audio/')) {
-      return validateAudioFile(file);
-    }
     if (acceptedTypes.includes('image') && file.type.startsWith('image/')) {
       return validateImageFile(file);
     }
@@ -195,9 +183,6 @@ export default function FileUploader({
     }
     if (fileType === 'doc' || fileType === 'docx' || fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
       return <FileText size={20} className="text-blue-700" />;
-    }
-    if (['mp3', 'm4a', 'wav', 'webm', 'ogg'].includes(fileName.split('.').pop()?.toLowerCase() || '')) {
-      return <FileAudio size={20} className="text-blue-600" />;
     }
     return <FileImage size={20} className="text-emerald-600" />;
   };

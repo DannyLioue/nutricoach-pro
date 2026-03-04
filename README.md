@@ -310,11 +310,13 @@ model DietPhotoMealGroup {
 model Consultation {
   id              String   @id @default(cuid())
   clientId        String
-  date            DateTime
-  notes           String
-  audioFileUrl    String?
-  imageFiles      Json?
-  analysis        Json?
+  consultationDate DateTime @default(now())
+  consultationType String
+  sessionNotes     String?
+  images           String?
+  textFiles        String?
+  analysis         String?
+  analyzedAt       DateTime?
 }
 
 model WeeklyDietSummary {
