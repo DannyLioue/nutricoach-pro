@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { analyzeReportImage } from '@/lib/ai/gemini';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { imageBase64 } = body;
 

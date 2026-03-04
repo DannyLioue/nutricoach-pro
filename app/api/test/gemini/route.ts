@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { google } from '@ai-sdk/google';
 import { generateText } from 'ai';
 
@@ -7,6 +8,15 @@ process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 export async function GET(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+    }
+
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     // 测试不同的模型
     const models = [
       'gemini-2.5-flash',
