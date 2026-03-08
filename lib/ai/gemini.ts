@@ -332,7 +332,7 @@ export async function analyzeReportImage(imageBase64: string): Promise<any> {
 /**
  * 使用 Vision API 分析饮食照片
  */
-export async function analyzeDietPhoto(
+async function analyzeDietPhoto(
   imageBase64: string,
   clientInfo: {
     name: string;

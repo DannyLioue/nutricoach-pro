@@ -117,7 +117,7 @@ export async function updateTaskStatus(
 /**
  * 更新任务进度
  */
-export async function updateTaskProgress(
+async function updateTaskProgress(
   taskId: string,
   progress: number,
   currentStep: string,
@@ -140,7 +140,7 @@ export async function updateTaskProgress(
 /**
  * 保存任务结果
  */
-export async function saveTaskResult(
+async function saveTaskResult(
   taskId: string,
   resultData: any
 ): Promise<void> {
@@ -170,7 +170,7 @@ export async function sendHeartbeat(taskId: string): Promise<void> {
 /**
  * 清理旧任务
  */
-export async function cleanupOldTasks(daysOld: number = 7): Promise<number> {
+async function cleanupOldTasks(daysOld: number = 7): Promise<number> {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 

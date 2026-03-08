@@ -17,7 +17,7 @@ export interface ExerciseVideo {
  * 常见运动动作视频库
  * 注：这些是示例链接，实际使用时需要替换为真实的优质教学视频
  */
-export const EXERCISE_VIDEO_LIBRARY: Record<string, ExerciseVideo> = {
+const EXERCISE_VIDEO_LIBRARY: Record<string, ExerciseVideo> = {
   // ==================== 上肢训练 ====================
   '俯卧撑': {
     keywords: ['俯卧撑', 'push up', 'pushup', '标准俯卧撑'],
@@ -134,7 +134,7 @@ export const EXERCISE_VIDEO_LIBRARY: Record<string, ExerciseVideo> = {
  * @param exerciseName 动作名称
  * @returns 视频信息或 null
  */
-export function findExerciseVideo(exerciseName: string): ExerciseVideo | null {
+function findExerciseVideo(exerciseName: string): ExerciseVideo | null {
   // 标准化动作名称（去除空格、括号内容等）
   const normalizedName = exerciseName
     .toLowerCase()
@@ -164,7 +164,7 @@ export function findExerciseVideo(exerciseName: string): ExerciseVideo | null {
  * @param exercises 动作列表
  * @returns 添加了视频信息的动作列表
  */
-export function enrichExercisesWithVideos<T extends { name: string }>(
+function enrichExercisesWithVideos<T extends { name: string }>(
   exercises: T[]
 ): Array<T & Partial<ExerciseVideo>> {
   return exercises.map(exercise => {

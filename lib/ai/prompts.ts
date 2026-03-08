@@ -1005,7 +1005,7 @@ ${clientInfo.userRequirements || '无特殊需求'}
  * 运动方案生成提示词
  * 基于客户体检报告和目标，生成初始运动方案
  */
-export const EXERCISE_PLAN_GENERATION_PROMPT = (
+const EXERCISE_PLAN_GENERATION_PROMPT = (
   clientInfo: {
     name: string;
     gender: string;
@@ -1120,7 +1120,7 @@ ${JSON.stringify(healthAnalysis, null, 2)}
  * 运动方案评估提示词
  * 基于客户最近5-7天的运动记录，评估当前方案的执行情况
  */
-export const EXERCISE_PLAN_EVALUATION_PROMPT = (
+const EXERCISE_PLAN_EVALUATION_PROMPT = (
   clientInfo: {
     name: string;
     gender: string;
@@ -1247,7 +1247,7 @@ ${JSON.stringify(exerciseRecords, null, 2)}
  * 运动方案调整提示词
  * 基于评估结果，生成修订版运动方案
  */
-export const EXERCISE_PLAN_REVISION_PROMPT = (
+const EXERCISE_PLAN_REVISION_PROMPT = (
   clientInfo: {
     name: string;
     gender: string;

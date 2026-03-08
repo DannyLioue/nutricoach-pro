@@ -180,7 +180,7 @@ interface SingleIndicatorProps {
   status: 'normal' | 'high' | 'low';
 }
 
-export function SingleIndicator({ name, value, target, unit, status }: SingleIndicatorProps) {
+function SingleIndicator({ name, value, target, unit, status }: SingleIndicatorProps) {
   const percentage = Math.round((value / target) * 100);
   const isNormal = status === 'normal';
 

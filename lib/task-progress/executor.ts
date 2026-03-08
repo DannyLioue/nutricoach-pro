@@ -83,7 +83,7 @@ function parseHealthConcerns(healthConcernsStr: string): string[] {
 /**
  * 周饮食汇总任务执行器
  */
-export class WeeklySummaryExecutor implements TaskExecutor {
+class WeeklySummaryExecutor implements TaskExecutor {
   private pauseRequested = false;
   private cancelRequested = false;
 
@@ -1010,7 +1010,7 @@ export function createExecutor(taskType: TaskType): TaskExecutor {
  * 增量更新饮食汇总任务执行器
  * 复用 WeeklySummaryExecutor，但跳过未变化的食谱组
  */
-export class IncrementalUpdateExecutor extends WeeklySummaryExecutor {
+class IncrementalUpdateExecutor extends WeeklySummaryExecutor {
   // 存储增量更新的额外信息
   private incrementalOptions: {
     isIncrementalUpdate: boolean;

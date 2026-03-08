@@ -23,7 +23,7 @@ async function ensureDir(dir: string) {
  * @param subdirectory 子目录 (如 'diet-photos', 'consultations')
  * @returns 文件路径 (相对于 public 目录)
  */
-export async function saveImageFile(
+async function saveImageFile(
   clientId: string,
   base64Data: string,
   subdirectory: string
@@ -80,7 +80,7 @@ export async function deleteFile(filepath: string): Promise<void> {
  * @param filename 文件名
  * @returns 文件路径 (相对于 public 目录)
  */
-export async function saveAudioFile(
+async function saveAudioFile(
   clientId: string,
   audioBuffer: Buffer,
   filename: string

@@ -987,7 +987,6 @@ export interface WeeklyDietSummaryContent {
 
 export type {
   TaskType,
-  TASK_STEPS,
   WeeklySummaryTaskParameters,
   WeeklySummaryIntermediateData,
   WeeklySummaryResultData,

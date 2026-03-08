@@ -10,7 +10,7 @@ interface WrappedTextProps {
   children: string;
 }
 
-export function WrappedText({ style, children }: WrappedTextProps) {
+function WrappedText({ style, children }: WrappedTextProps) {
   if (!children || typeof children !== 'string') {
     return <Text style={style}>{children}</Text>;
   }

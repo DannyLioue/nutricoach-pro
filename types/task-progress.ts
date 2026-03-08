@@ -30,7 +30,7 @@ export type TaskType =
 /**
  * 任务步骤定义
  */
-export const TASK_STEPS = {
+const TASK_STEPS = {
   'weekly-summary': [
     { key: 'auth', label: '验证权限', progress: 5 },
     { key: 'fetch', label: '获取记录', progress: 10 },

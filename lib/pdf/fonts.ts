@@ -46,6 +46,6 @@ export function registerPDFFonts(force = false) {
 /**
  * 重置字体注册状态
  */
-export function resetFontRegistration() {
+function resetFontRegistration() {
   fontsRegistered = false;
 }
