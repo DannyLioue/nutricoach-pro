@@ -989,18 +989,12 @@ export type {
   TaskType,
   WeeklySummaryTaskParameters,
   WeeklySummaryIntermediateData,
-  WeeklySummaryResultData,
   TaskParameters,
-  TaskIntermediateData,
-  TaskResultData,
   TaskProgressResponse,
-  TaskSSEEventType,
   TaskSSEEvent,
-  StepProgress,
   TaskCreateResponse,
   TaskStatusResponse,
   TaskOperationResponse,
-  TaskOptions,
 } from './task-progress';
 
 export { TaskStatus } from './task-progress';

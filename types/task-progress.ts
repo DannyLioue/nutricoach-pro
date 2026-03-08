@@ -95,7 +95,7 @@ export interface WeeklySummaryIntermediateData {
 /**
  * 周饮食汇总结果数据
  */
-export interface WeeklySummaryResultData {
+interface WeeklySummaryResultData {
   summaryId: string;
   summary: any;
 }
@@ -108,12 +108,12 @@ export type TaskParameters = WeeklySummaryTaskParameters | IncrementalUpdateTask
 /**
  * 通用中间数据
  */
-export type TaskIntermediateData = WeeklySummaryIntermediateData | IncrementalUpdateIntermediateData;
+type TaskIntermediateData = WeeklySummaryIntermediateData | IncrementalUpdateIntermediateData;
 
 /**
  * 通用结果数据
  */
-export type TaskResultData = WeeklySummaryResultData;
+type TaskResultData = WeeklySummaryResultData;
 
 /**
  * 增量更新饮食汇总任务参数
@@ -189,7 +189,7 @@ export interface TaskProgressResponse {
 /**
  * SSE 事件类型
  */
-export type TaskSSEEventType =
+type TaskSSEEventType =
   | 'progress'        // 进度更新
   | 'stepComplete'    // 步骤完成
   | 'paused'          // 任务暂停
@@ -217,7 +217,7 @@ export interface TaskSSEEvent {
 /**
  * 步骤进度信息
  */
-export interface StepProgress {
+interface StepProgress {
   key: string;
   label: string;
   status: 'pending' | 'running' | 'completed' | 'skipped';
@@ -256,7 +256,7 @@ export interface TaskOperationResponse {
 /**
  * 任务配置选项
  */
-export interface TaskOptions {
+interface TaskOptions {
   maxRetries?: number;
   timeout?: number;
   heartbeatInterval?: number;
