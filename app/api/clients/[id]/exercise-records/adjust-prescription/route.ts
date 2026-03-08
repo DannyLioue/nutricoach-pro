@@ -125,7 +125,7 @@ export async function POST(
       adjustment,
       summary: {
         totalRecords: actualRecords.length,
-        totalDuration: actualRecords.reduce((sum, r) => sum + r.duration, 0),
+        totalDuration: actualRecords.reduce((sum, r) => sum + (r.duration ?? 0), 0),
         dateRange: targetDateRange,
       },
     });

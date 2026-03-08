@@ -12,6 +12,8 @@ interface ExerciseRecord {
   duration: number;
   intensity?: string;
   notes?: string;
+  imageUrl?: string;
+  analysis?: string;
 }
 
 interface GroupedRecords {

@@ -179,6 +179,84 @@ export async function generateExerciseRecommendation(
 }
 
 /**
+ * 根据近7日实际执行记录，对既有运动处方给出调整建议
+ */
+export async function generateExercisePrescriptionAdjustment(
+  clientInfo: {
+    name: string;
+    gender: string;
+    age: number;
+    healthConcerns: string[];
+  },
+  actualRecords: Array<{
+    date: string;
+    type: string | null;
+    duration: number | null;
+    intensity?: string;
+  }>,
+  prescription: unknown,
+  targetDateRange: string
+): Promise<{
+  adherenceRate: number;
+  summary: string;
+  strengths: string[];
+  risks: string[];
+  adjustments: string[];
+}> {
+  try {
+    const prompt = `你是一名运动处方营养师，请基于以下信息给出处方调整建议。
+
+客户信息：
+${JSON.stringify(clientInfo, null, 2)}
+
+统计区间：
+${targetDateRange}
+
+当前运动处方：
+${JSON.stringify(prescription, null, 2)}
+
+实际执行记录：
+${JSON.stringify(actualRecords, null, 2)}
+
+请仅返回 JSON，格式如下：
+{
+  "adherenceRate": 0-100 的数字,
+  "summary": "一句话总结",
+  "strengths": ["执行较好的点1", "执行较好的点2"],
+  "risks": ["风险点1", "风险点2"],
+  "adjustments": ["下一周调整建议1", "下一周调整建议2", "下一周调整建议3"]
+}`;
+
+    const model = await getModel('exercise-recommendation');
+    const { text } = await generateText({
+      model,
+      prompt,
+      temperature: 0.3,
+    });
+
+    const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleanText) as {
+      adherenceRate?: number;
+      summary?: string;
+      strengths?: string[];
+      risks?: string[];
+      adjustments?: string[];
+    };
+
+    return {
+      adherenceRate: typeof parsed.adherenceRate === 'number' ? parsed.adherenceRate : 0,
+      summary: parsed.summary || '暂无可用总结',
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
+      risks: Array.isArray(parsed.risks) ? parsed.risks : [],
+      adjustments: Array.isArray(parsed.adjustments) ? parsed.adjustments : [],
+    };
+  } catch (error) {
+    console.error('Exercise prescription adjustment error:', error);
+    throw new Error('运动处方调整建议生成失败：' + (error as Error).message);
+  }
+}
+
+/**
  * 生成生活方式建议
  */
 export async function generateLifestyleRecommendation(

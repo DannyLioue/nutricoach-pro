@@ -57,12 +57,13 @@ export async function GET(
 
     // Calculate summary statistics
     const totalRecords = records.length;
-    const totalDuration = records.reduce((sum, r) => sum + r.duration, 0);
+    const totalDuration = records.reduce((sum, r) => sum + (r.duration ?? 0), 0);
 
     // Group by type
     const byType: { [key: string]: number } = {};
     records.forEach(r => {
-      byType[r.type] = (byType[r.type] || 0) + r.duration;
+      const typeKey = r.type || 'UNKNOWN';
+      byType[typeKey] = (byType[typeKey] || 0) + (r.duration ?? 0);
     });
 
     // Group by intensity
@@ -88,7 +89,7 @@ export async function GET(
       const dateStr = r.date.toISOString().split('T')[0];
       if (byDate[dateStr]) {
         byDate[dateStr].count += 1;
-        byDate[dateStr].duration += r.duration;
+        byDate[dateStr].duration += r.duration ?? 0;
       }
     });
 
