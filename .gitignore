@@ -51,3 +51,7 @@ prisma/*.db-journal
 check_summary_db.ts
 proxy-test.mjs
 app/api/test/
+
+# generated local test artifacts
+/test-*.png
+/test-*.pdf
