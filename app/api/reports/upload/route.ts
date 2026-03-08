@@ -3,11 +3,13 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
 import { google } from '@ai-sdk/google';
 import { generateText } from 'ai';
+import { deleteFile, saveReportFile } from '@/lib/storage/file-storage';
 
 // 设置 @ai-sdk/google 需要的环境变量
 process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 export async function POST(request: NextRequest) {
+  let savedFilePath: string | null = null;
   try {
     const session = await auth();
 
@@ -20,6 +22,8 @@ export async function POST(request: NextRequest) {
     const clientId = formData.get('clientId') as string;
     const fileName = formData.get('fileName') as string;
     const fileType = formData.get('fileType') as string;
+    const effectiveFileType = fileType || file.type || 'application/octet-stream';
+    const originalFileName = fileName || file.name || 'report';
 
     if (!file) {
       return NextResponse.json({ error: '未上传文件' }, { status: 400 });
@@ -41,23 +45,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '客户不存在' }, { status: 404 });
     }
 
-    // 将文件转换为 base64
+    // 将文件转换为 buffer，用于 AI 分析和文件落盘
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const fileBase64 = buffer.toString('base64');
-    const fileDataUrl = `data:${fileType};base64,${fileBase64}`;
+    const fileDataUrl = `data:${effectiveFileType};base64,${fileBase64}`;
+    const normalizedFileName = buildReportFileName(originalFileName, effectiveFileType);
+
+    // 新写入采用文件路径存储，减少数据库体积；读取端兼容历史 Base64 数据
+    savedFilePath = await saveReportFile(clientId, buffer, normalizedFileName);
 
     // 创建报告记录
     const report = await prisma.report.create({
       data: {
         clientId: clientId,
-        fileName: fileName,
-        fileType: fileType,
-        fileUrl: fileDataUrl,
+        fileName: originalFileName,
+        fileType: effectiveFileType,
+        fileUrl: savedFilePath,
         extractedData: {
           uploadDate: new Date().toISOString(),
-          fileName: fileName,
+          fileName: originalFileName,
           fileSize: file.size,
+          storageType: 'file-path',
         },
       },
     });
@@ -166,7 +175,32 @@ export async function POST(request: NextRequest) {
       analysis,
     });
   } catch (error) {
+    if (savedFilePath) {
+      await deleteFile(savedFilePath);
+    }
     console.error('上传报告错误:', error);
     return NextResponse.json({ error: '上传报告失败' }, { status: 500 });
   }
+}
+
+function buildReportFileName(fileName: string, fileType: string): string {
+  const sanitizedBaseName = fileName
+    .replace(/\.[^/.]+$/, '')
+    .replace(/[^a-zA-Z0-9-_]/g, '_')
+    .slice(0, 60) || 'report';
+
+  const extension = fileName.includes('.')
+    ? fileName.split('.').pop()?.toLowerCase()
+    : fileTypeToExtension(fileType);
+
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).slice(2, 8);
+  return `${timestamp}-${random}-${sanitizedBaseName}.${extension || 'bin'}`;
+}
+
+function fileTypeToExtension(fileType: string): string {
+  if (fileType === 'application/pdf') return 'pdf';
+  if (fileType === 'image/png') return 'png';
+  if (fileType === 'image/jpeg' || fileType === 'image/jpg') return 'jpg';
+  return 'bin';
 }

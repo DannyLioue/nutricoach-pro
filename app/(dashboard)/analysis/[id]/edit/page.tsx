@@ -127,23 +127,15 @@ function AnalysisEditContent() {
 
       // 如果使用现有报告
       if (useExisting) {
-        // 从 data URL 中提取 base64 数据
-        const fileUrl = report.fileUrl;
-        const matches = fileUrl.match(/^data:([^;]+);base64,(.+)$/);
-        if (matches) {
-          fileType = matches[1];
-          const base64Data = matches[2];
-          // 将 base64 转换回 File 对象
-          const byteCharacters = atob(base64Data);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: fileType });
-          fileToAnalyze = new File([blob], report.fileName, { type: fileType });
-          fileName = report.fileName;
+        const fileResponse = await fetch(`/api/reports/${reportId}/file`);
+        if (!fileResponse.ok) {
+          const fileError = await fileResponse.json();
+          throw new Error(fileError.error || '读取原始报告失败');
         }
+        const blob = await fileResponse.blob();
+        fileType = blob.type || report.fileType;
+        fileName = report.fileName;
+        fileToAnalyze = new File([blob], report.fileName, { type: fileType });
       }
 
       if (!fileToAnalyze || !fileName || !fileType) {

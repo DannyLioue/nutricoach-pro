@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger';
  * - 待分析的饮食照片
  * - 待生成干预方案的客户
  * - 待分析的食谱组
+ * - 待评估的运动方案
  */
 export async function GET(request: NextRequest) {
   try {
@@ -106,6 +107,37 @@ export async function GET(request: NextRequest) {
       take: 10,
     });
 
+    // 4. 获取待评估的运动方案（执行超过2周且状态为ACTIVE的方案）
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+    const pendingEvaluations = await prisma.exercisePlan.findMany({
+      where: {
+        client: {
+          userId,
+        },
+        status: 'ACTIVE',
+        createdAt: {
+          lte: twoWeeksAgo,
+        },
+        actualStartDate: {
+          not: null,
+        },
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      take: 10,
+    });
+
     // 格式化返回数据
     const formattedPendingPhotos = pendingPhotos.map((photo) => ({
       id: photo.id,
@@ -124,12 +156,29 @@ export async function GET(request: NextRequest) {
       createdAt: group.createdAt,
     }));
 
+    const formattedPendingEvaluations = pendingEvaluations.map((plan) => {
+      const daysSinceCreated = Math.floor(
+        (Date.now() - new Date(plan.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      return {
+        id: plan.id,
+        clientId: plan.clientId,
+        clientName: plan.client.name,
+        version: plan.version,
+        createdAt: plan.createdAt,
+        daysSinceCreated,
+        triggerReason: plan.triggerReason || '运动方案',
+      };
+    });
+
     logger.apiSuccess('GET', '/api/dashboard/todos', '获取待办事项成功');
 
     return NextResponse.json({
       pendingPhotos: formattedPendingPhotos,
       pendingRecommendations,
       pendingMealGroups: formattedPendingMealGroups,
+      pendingEvaluations: formattedPendingEvaluations,
     });
   } catch (error) {
     logger.apiError('GET', '/api/dashboard/todos', error);

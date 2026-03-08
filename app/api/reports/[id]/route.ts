@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
+import { deleteFile } from '@/lib/storage/file-storage';
+import { isDataUrl } from '@/lib/reports/file-url';
 
 // GET - 获取报告详情
 export async function GET(
@@ -104,6 +106,11 @@ export async function DELETE(
 
     if (!report) {
       return NextResponse.json({ error: '报告不存在' }, { status: 404 });
+    }
+
+    // 新存储方案下删除报告时同步删除物理文件；历史 Base64 数据无需处理
+    if (report.fileUrl && !isDataUrl(report.fileUrl)) {
+      await deleteFile(report.fileUrl);
     }
 
     // 删除报告（会级联删除相关的建议）

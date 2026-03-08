@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "migrate:reports": "tsx scripts/migrate-report-storage.ts",
     "feishu": "tsx lib/feishu/cli.ts",
     "feishu:echo": "FEISHU_MODE=echo tsx lib/feishu/cli.ts",
     "feishu:log": "FEISHU_MODE=log tsx lib/feishu/cli.ts",

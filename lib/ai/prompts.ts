@@ -997,6 +997,328 @@ ${clientInfo.userRequirements || '无特殊需求'}
 严格按照以上JSON结构返回结果，不要添加任何额外的解释文字。
 `;
 
+// ========================================
+// 运动方案管理 Prompts
+// ========================================
+
+/**
+ * 运动方案生成提示词
+ * 基于客户体检报告和目标，生成初始运动方案
+ */
+export const EXERCISE_PLAN_GENERATION_PROMPT = (
+  clientInfo: {
+    name: string;
+    gender: string;
+    age: number;
+    height: number;
+    weight: number;
+    activityLevel: string;
+    userRequirements: string | null;
+    exerciseDetails: string | null;
+    healthConcerns: string[];
+    medicalHistory: string[];
+  },
+  healthAnalysis: any
+) => `
+你是一位资深注册营养师和运动处方专家，需要为客户生成个性化的运动方案。
+
+## 【客户基本信息】
+
+**个人信息：**
+- 姓名：${clientInfo.name}
+- 性别：${clientInfo.gender}
+- 年龄：${clientInfo.age}岁
+- 身高：${clientInfo.height}cm
+- 体重：${clientInfo.weight}kg
+- 活动水平：${clientInfo.activityLevel}
+
+**运动相关：**
+- 用户需求：${clientInfo.userRequirements || '减重、改善整体健康'}
+- 运动详情：${clientInfo.exerciseDetails || '无特殊器材/环境要求'}
+- 健康问题：${clientInfo.healthConcerns.join('、') || '无'}
+- 疾病史：${clientInfo.medicalHistory.join('、') || '无'}
+
+## 【健康分析结果】
+
+\`\`\`json
+${JSON.stringify(healthAnalysis, null, 2)}
+\`\`\`
+
+## 【方案要求】
+
+请生成一个**为期3个月**的渐进式运动方案，包含：
+
+1. **每周目标**：清晰的运动目标（如：每周150分钟中等强度有氧）
+2. **训练计划**：详细的每周训练安排，包含：
+   - 每周训练天数和休息日
+   - 每次训练的类型、时长、强度
+   - 具体动作的组数、次数、休息时间
+   - 动作要点和注意事项
+3. **进阶计划**：月度进阶说明
+4. **注意事项**：安全提醒和特殊注意事项
+5. **成功标准**：可量化的评估标准
+
+## 【生成原则】
+
+1. **个体化设计**：严格根据客户的器材、经验、健康状况设计
+2. **循序渐进**：从简单到复杂，从低强度到高强度
+3. **全面发展**：包含力量、有氧、柔韧训练
+4. **安全优先**：考虑疾病史和体检异常
+5. **可执行性**：训练时长现实，动作具体可量化
+6. **语言通俗**：避免专业术语，用日常语言描述
+
+请以 JSON 格式返回（不要有 markdown 格式）：
+
+\`\`\`json
+{
+  "weeklyGoal": "每周运动总目标",
+  "trainingPlan": [
+    {
+      "week": "第1周",
+      "focus": "本周重点",
+      "schedule": [
+        {
+          "day": "周一",
+          "type": "力量训练/有氧训练/休息日",
+          "duration": "总时长",
+          "warmup": "热身运动（5-10分钟）",
+          "exercises": [
+            {
+              "name": "动作名称",
+              "sets": 组数,
+              "reps": "次数范围",
+              "rest": "组间休息",
+              "intensity": "强度描述（用通俗语言）",
+              "notes": "动作要点和注意事项"
+            }
+          ],
+          "cooldown": "放松拉伸（5-10分钟）"
+        }
+      ]
+    }
+  ],
+  "monthlyProgression": [
+    {
+      "month": "第1个月",
+      "focus": "本月重点",
+      "adjustments": "训练调整说明"
+    }
+  ],
+  "precautions": [
+    "注意事项1",
+    "注意事项2"
+  ],
+  "successCriteria": [
+    "成功标准1",
+    "成功标准2"
+  ]
+}
+\`\`\`
+`;
+
+/**
+ * 运动方案评估提示词
+ * 基于客户最近5-7天的运动记录，评估当前方案的执行情况
+ */
+export const EXERCISE_PLAN_EVALUATION_PROMPT = (
+  clientInfo: {
+    name: string;
+    gender: string;
+    age: number;
+    userRequirements: string | null;
+  },
+  currentPlan: any,
+  exerciseRecords: Array<{
+    date: string;
+    type?: string;
+    duration?: number;
+    intensity?: string;
+    isRestDay: boolean;
+    notes?: string;
+  }>,
+  analysisPeriod: { start: string; end: string }
+) => `
+你是一位资深注册营养师和运动处方专家，需要评估客户运动方案的执行情况。
+
+## 【客户基本信息】
+
+- 姓名：${clientInfo.name}
+- 性别：${clientInfo.gender}
+- 年龄：${clientInfo.age}岁
+- 用户需求：${clientInfo.userRequirements || '改善健康'}
+
+## 【当前运动方案】
+
+\`\`\`json
+${JSON.stringify(currentPlan, null, 2)}
+\`\`\`
+
+## 【分析周期】
+
+${analysisPeriod.start} 至 ${analysisPeriod.end}（共${exerciseRecords.length}天记录）
+
+## 【运动记录数据】
+
+\`\`\`json
+${JSON.stringify(exerciseRecords, null, 2)}
+\`\`\`
+
+## 【评估要求】
+
+请从以下维度评估当前方案的执行情况：
+
+1. **执行统计**：
+   - 计划天数 vs 实际记录天数
+   - 计划运动天数 vs 实际运动天数
+   - 休息日是否按计划执行
+   - 总运动时长统计
+
+2. **达成率分析**：
+   - 运动类型达成率（是否按计划完成指定类型的运动）
+   - 运动时长达成率（是否达到计划时长）
+   - 运动强度达成率（是否符合计划强度）
+
+3. **关键发现**：
+   - 哪些方面执行良好？
+   - 哪些方面存在困难？
+   - 是否发现运动习惯模式？
+   - 是否有明显的偏差？
+
+4. **问题识别**：
+   - 方案是否过于困难/简单？
+   - 哪些运动类型客户不喜欢？
+   - 时间安排是否合理？
+   - 是否受到外部因素影响？
+
+5. **调整建议**：
+   - 是否需要调整运动强度？
+   - 是否需要调整运动类型？
+   - 是否需要调整训练频次？
+   - 其他具体建议
+
+请以 JSON 格式返回（不要有 markdown 格式）：
+
+\`\`\`json
+{
+  "executionStats": {
+    "totalDays": 总天数,
+    "recordedDays": 已记录天数,
+    "exerciseDays": 运动天数,
+    "restDays": 休息日天数,
+    "totalDuration": 总运动时长（分钟）,
+    "avgDuration": 平均每次运动时长（分钟）,
+    "adherenceRate": 达成率（0-1）
+  },
+  "typeCompletion": {
+    "plannedTypes": ["计划的运动类型"],
+    "completedTypes": ["完成的运动类型"],
+    "typeMatchRate": 类型匹配率（0-1）
+  },
+  "keyFindings": [
+    "关键发现1",
+    "关键发现2"
+  ],
+  "strengths": [
+    "执行良好的方面1",
+    "执行良好的方面2"
+  ],
+  "issues": [
+    {
+      "issue": "问题描述",
+      "severity": "高/中/低",
+      "impact": "影响说明"
+    }
+  ],
+  "recommendations": [
+    {
+      "area": "调整领域（如：强度/类型/频次）",
+      "suggestion": "具体建议",
+      "reason": "建议原因"
+    }
+  ],
+  "overallAssessment": "整体评价（优秀/良好/一般/需改善）",
+  "shouldRevise": true/false,
+  "reviseReason": "如需调整，说明原因"
+}
+\`\`\`
+`;
+
+/**
+ * 运动方案调整提示词
+ * 基于评估结果，生成修订版运动方案
+ */
+export const EXERCISE_PLAN_REVISION_PROMPT = (
+  clientInfo: {
+    name: string;
+    gender: string;
+    age: number;
+    userRequirements: string | null;
+  },
+  previousPlan: any,
+  evaluationResult: any
+) => `
+你是一位资深注册营养师和运动处方专家，需要基于执行评估结果调整客户的运动方案。
+
+## 【客户基本信息】
+
+- 姓名：${clientInfo.name}
+- 性别：${clientInfo.gender}
+- 年龄：${clientInfo.age}岁
+- 用户需求：${clientInfo.userRequirements || '改善健康'}
+
+## 【原运动方案】
+
+\`\`\`json
+${JSON.stringify(previousPlan.prescription, null, 2)}
+\`\`\`
+
+## 【执行评估结果】
+
+\`\`\`json
+${JSON.stringify(evaluationResult, null, 2)}
+\`\`\`
+
+## 【调整要求】
+
+基于评估结果，生成**修订版运动方案**。调整原则：
+
+1. **针对性强**：针对评估中发现的具体问题进行调整
+2. **保持连贯性**：在原方案基础上优化，不要完全推翻
+3. **渐进调整**：调整幅度不宜过大，给客户适应时间
+4. **保持目标**：调整是为了更好地达成目标，不是降低标准
+
+## 【输出格式】
+
+请以 JSON 格式返回修订方案（不要有 markdown 格式）：
+
+\`\`\`json
+{
+  "revisionReason": "调整原因概述",
+  "keyChanges": [
+    "主要变更1",
+    "主要变更2"
+  ],
+  "weeklyGoal": "调整后的每周目标",
+  "trainingPlan": [
+    // 与原方案格式相同，但内容经过调整
+  ],
+  "monthlyProgression": [
+    // 更新的进阶计划
+  ],
+  "precautions": [
+    "更新后的注意事项"
+  ],
+  "successCriteria": [
+    "更新后的成功标准"
+  ],
+  "expectedImprovements": [
+    "预期改进1",
+    "预期改进2"
+  ]
+}
+\`\`\`
+`;
+
 /**
  * 咨询记录分析提示词
  * 分析营养师与客户的咨询内容，提取关键信息用于更新营养干预方案
@@ -1952,17 +2274,26 @@ ${healthAnalysis.abnormalIndicators?.map((ind: any) => `- ${ind.indicator}: ${in
  */
 export const EXERCISE_SCREENSHOT_ANALYSIS_PROMPT = (
   notes?: string | null
-) => `
+) => {
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+  return `
 你是一位专业的运动数据分析专家。请分析这张运动APP的截图（GARMIN、Keep、咕咚、悦跑圈等），提取运动数据。
+
+**重要参考信息：**
+- 今天日期：${today}
+- 昨天日期：${yesterday}
 
 ${notes ? `**用户备注：**${notes}` : ''}
 
 请识别并提取以下信息：
 
 1. **运动日期**（date）:
-   - 优先识别截图上显示的日期（如：2024-01-15、01/15、1月15日等）
+   - 优先识别截图上显示的日期（如：2024-01-15、01/15、1月15日、2月6日等）
    - 格式：YYYY-MM-DD（如：2024-01-15）
-   - 如果截图显示的是相对时间（如"今天"、"昨天"），转换为具体日期
+   - 如果截图显示的是相对时间（如"今天"、"昨天"），使用上述参考日期转换
+   - **特别注意：仔细识别日期数字，6日和7日要分清**
 
 2. **运动类型**（exerciseType）:
    - 跑步、骑行、游泳、健身、力量训练、瑜伽、普拉提、跳绳、篮球、足球、羽毛球、登山、徒步等
@@ -2019,7 +2350,7 @@ ${notes ? `**用户备注：**${notes}` : ''}
 
 **识别要点：**
 1. **日期识别优先**：运动APP截图通常会显示运动日期，请务必提取
-2. 日期格式多样：可能是 "2024-01-15"、"01/15"、"1月15日"、"Jan 15" 等，统一转换为 YYYY-MM-DD
+2. 日期格式多样：可能是 "2024-01-15"、"01/15"、"1月15日"、"Jan 15"、"2月6日" 等，统一转换为 YYYY-MM-DD
 3. 如果截图中有多个运动项目，提取主要项目或全部列出
 4. 时长优先识别"时长"、"时间"、"用时"等字段
 5. 如果截图不清晰或无法识别某些数据，对应字段设为 null
@@ -2033,3 +2364,4 @@ ${notes ? `**用户备注：**${notes}` : ''}
   "error": "无法识别运动数据，请确保上传的是运动APP截图"
 }
 `;
+};

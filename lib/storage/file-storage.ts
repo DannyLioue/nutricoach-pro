@@ -62,7 +62,8 @@ export async function saveImageFile(
  * @param filepath 文件路径 (相对于 public 目录)
  */
 export async function deleteFile(filepath: string): Promise<void> {
-  const fullPath = join(process.cwd(), 'public', filepath);
+  const normalizedPath = filepath.startsWith('/') ? filepath.slice(1) : filepath;
+  const fullPath = join(process.cwd(), 'public', normalizedPath);
   try {
     const { unlink } = await import('fs/promises');
     await unlink(fullPath);
