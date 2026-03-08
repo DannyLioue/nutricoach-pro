@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp, CircleCheck, AlertTriangle, XCircle, Info, Spar
 
 // ==================== Type Definitions ====================
 
-export interface FoodItem {
+interface FoodItem {
   name: string;
   detail?: string;    // For Green zone (e.g., "Rich in Folate")
   limit?: string;     // For Yellow zone (e.g., "< 15g/day")

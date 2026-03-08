@@ -14,7 +14,7 @@ function badgeVariant(variant: 'default' | 'secondary' | 'destructive' | 'outlin
   return cn(base, variants[variant], className)
 }
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'secondary' | 'destructive' | 'outline'
 }
 

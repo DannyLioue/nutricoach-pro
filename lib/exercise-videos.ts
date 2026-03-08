@@ -3,7 +3,7 @@
  * 优先使用 B站（高质量教学）和小红书（简短易懂）
  */
 
-export interface ExerciseVideo {
+interface ExerciseVideo {
   keywords: string[]; // 动作关键词，用于匹配
   videoUrl: string;
   videoPlatform: 'bilibili' | 'douyin' | 'xiaohongshu' | 'weixin'; // 仅国内平台

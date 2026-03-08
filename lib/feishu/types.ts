@@ -81,7 +81,7 @@ export interface ChatMemberDeleteV1 {
 /**
  * Bot added to chat event
  */
-export interface ChatBotAddV1 {
+interface ChatBotAddV1 {
   event_type: string;
   operator: {
     operator_id: {
@@ -100,7 +100,7 @@ export interface ChatBotAddV1 {
 /**
  * Message content structure (when message_type is 'text')
  */
-export interface MessageContent {
+interface MessageContent {
   text: string;
   /**
    * Additional fields for rich content
