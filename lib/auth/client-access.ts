@@ -61,7 +61,7 @@ export async function verifyClientAccess(
  * @throws {Error} 当客户不存在时抛出错误
  * @returns 客户对象
  */
-export async function requireClientAccess(
+async function requireClientAccess(
   clientId: string,
   userId: string
 ): Promise<Client> {

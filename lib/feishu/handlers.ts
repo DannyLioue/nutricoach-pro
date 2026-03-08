@@ -103,7 +103,7 @@ export function setupCommonHandlers(
  * @param contentString - JSON string from message.content
  * @returns Parsed content object
  */
-export function parseMessageContent(contentString: string): any {
+function parseMessageContent(contentString: string): any {
   try {
     return JSON.parse(contentString);
   } catch (error) {
@@ -118,7 +118,7 @@ export function parseMessageContent(contentString: string): any {
  * @param replyFn - Function that generates reply text
  * @returns Event handler function
  */
-export function createAutoReplyHandler(
+function createAutoReplyHandler(
   replyFn: (message: P2MessageReceiveV1) => string | Promise<string>
 ): (data: P2MessageReceiveV1) => Promise<void> {
   return async (data: P2MessageReceiveV1) => {
@@ -153,7 +153,7 @@ export function createEchoHandler(
  * @param welcomeMessage - Welcome message text
  * @returns Event handler function
  */
-export function createWelcomeHandler(
+function createWelcomeHandler(
   connection: FeishuLongConnection,
   welcomeMessage: string = '欢迎加入群聊！'
 ): (data: ChatMemberAddV1) => Promise<void> {

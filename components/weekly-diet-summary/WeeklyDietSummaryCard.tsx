@@ -415,30 +415,6 @@ export default function WeeklyDietSummaryCard({
 }
 
 /**
- * 汇总卡片加载状态
- */
-export function WeeklyDietSummaryCardSkeleton() {
-  return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-      <div className="p-5 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
-            <div className="w-32 h-6 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
-          </div>
-        </div>
-        <div className="w-24 h-6 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse mb-3" />
-        <div className="grid grid-cols-3 gap-3">
-          <div className="h-14 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />
-          <div className="h-14 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />
-          <div className="h-14 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
  * 空状态 - 暂无汇总数据
  */
 export function WeeklyDietSummaryEmpty({

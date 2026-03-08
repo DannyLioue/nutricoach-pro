@@ -128,7 +128,7 @@ export function getDefaultModelForTask(taskType: AITaskType): string {
  * @param taskType - The AI task type
  * @returns Promise with array of available models
  */
-export async function getAvailableModelsForTask(taskType: AITaskType) {
+async function getAvailableModelsForTask(taskType: AITaskType) {
   const models = await prisma.aIModel.findMany({
     where: { enabled: true },
     include: {
@@ -155,7 +155,7 @@ export async function getAvailableModelsForTask(taskType: AITaskType) {
  *
  * @returns Promise with array of providers and their models
  */
-export async function getAllProviders() {
+async function getAllProviders() {
   return prisma.aIProvider.findMany({
     where: { enabled: true },
     include: {
@@ -173,7 +173,7 @@ export async function getAllProviders() {
  * @param taskType - The AI task type
  * @returns Promise with true if model can handle the task
  */
-export async function canModelHandleTask(
+async function canModelHandleTask(
   modelId: string,
   taskType: AITaskType
 ): Promise<boolean> {

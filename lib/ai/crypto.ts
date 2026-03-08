@@ -7,7 +7,6 @@
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
-const KEY_LENGTH = 32;
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
@@ -127,17 +126,4 @@ export async function validateAPIKey(providerId: string, apiKey: string): Promis
     console.error('API key validation failed:', error);
     return false;
   }
-}
-
-/**
- * Generate a secure random encryption key
- *
- * @returns A 64-character hex string (32 bytes)
- *
- * @example
- * const key = generateEncryptionKey();
- * // Returns: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
- */
-export function generateEncryptionKey(): string {
-  return crypto.randomBytes(KEY_LENGTH).toString('hex');
 }
