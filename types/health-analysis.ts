@@ -11,7 +11,7 @@ export type HealthStatus = 'excellent' | 'good' | 'fair' | 'poor';
 /**
  * 健康状况摘要
  */
-export interface HealthSummary {
+interface HealthSummary {
   /** 整体状态 */
   status: HealthStatus;
   /** 状态标题 */

@@ -1,7 +1,7 @@
 // 用户相关类型
-export type UserRole = 'ADMIN' | 'NUTRITIONIST';
+type UserRole = 'ADMIN' | 'NUTRITIONIST';
 
-export interface User {
+interface User {
   id: string;
   name: string | null;
   email: string;
@@ -13,10 +13,10 @@ export interface User {
 }
 
 // 客户相关类型
-export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
-export type ActivityLevel = 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'ACTIVE' | 'VERY_ACTIVE';
+type Gender = 'MALE' | 'FEMALE' | 'OTHER';
+type ActivityLevel = 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'ACTIVE' | 'VERY_ACTIVE';
 
-export interface Client {
+interface Client {
   id: string;
   userId: string;
   name: string;
@@ -36,7 +36,7 @@ export interface Client {
 }
 
 // 报告相关类型
-export interface Report {
+interface Report {
   id: string;
   clientId: string;
   fileUrl: string;
@@ -68,9 +68,9 @@ export interface AbnormalIndicator {
 }
 
 // 建议相关类型
-export type RecType = 'DIET' | 'EXERCISE' | 'LIFESTYLE' | 'COMPREHENSIVE';
+type RecType = 'DIET' | 'EXERCISE' | 'LIFESTYLE' | 'COMPREHENSIVE';
 
-export interface Recommendation {
+interface Recommendation {
   id: string;
   clientId: string;
   reportId: string | null;
@@ -131,7 +131,7 @@ export interface LifestyleRecommendation {
   stressManagement: string[];
 }
 
-export interface ComprehensiveRecommendation {
+interface ComprehensiveRecommendation {
   diet: DietRecommendation;
   exercise: ExerciseRecommendation;
   lifestyle: LifestyleRecommendation;
@@ -227,33 +227,33 @@ export interface ComplianceEvaluation {
   biomarkerCompliance: BiomarkerCompliance;
 }
 
-export interface CalorieMatch {
+interface CalorieMatch {
   estimatedCalories: number;
   targetCalories: number;
   percentage: number;
   status: 'within' | 'under' | 'over';
 }
 
-export interface MacroMatch {
+interface MacroMatch {
   protein: MacroStatus;
   carbs: MacroStatus;
   fat: MacroStatus;
 }
 
-export interface MacroStatus {
+interface MacroStatus {
   actual: number;
   target: number;
   status: 'within' | 'under' | 'over';
 }
 
-export interface FoodTrafficLightCompliance {
+interface FoodTrafficLightCompliance {
   greenFoods: string[]; // 绿灯食物
   yellowFoods: string[]; // 黄灯食物
   redFoods: string[]; // 红灯食物（违规）
   unknownFoods: string[]; // 未分类食物
 }
 
-export interface BiomarkerCompliance {
+interface BiomarkerCompliance {
   compliantIndicators: string[]; // 有利改善的异常指标
   violatingIndicators: string[]; // 不利改善的异常指标
   neutralIndicators: string[]; // 无影响的异常指标
@@ -275,27 +275,27 @@ export interface ImprovementSuggestions {
   portionAdjustments: PortionAdjustment[];
 }
 
-export interface RemovalSuggestion {
+interface RemovalSuggestion {
   food: string;
   reason: string;
   alternatives: string[];
 }
 
-export interface AdditionSuggestion {
+interface AdditionSuggestion {
   food: string;
   reason: string;
   targetMeal: string;
   amount: string;
 }
 
-export interface ModificationSuggestion {
+interface ModificationSuggestion {
   food: string;
   currentIssue: string;
   suggestedChange: string;
   reason: string;
 }
 
-export interface PortionAdjustment {
+interface PortionAdjustment {
   food: string;
   currentPortion: string;
   suggestedPortion: string;
@@ -317,7 +317,7 @@ export interface HealthConcernsAlignment {
 }
 
 // ==================== 表单类型 ====================
-export interface ClientFormData {
+interface ClientFormData {
   name: string;
   gender: Gender;
   birthDate: string;
@@ -577,7 +577,7 @@ export interface CreateConsultationFormData {
 // ==================== 营养师计划评估类型 ====================
 
 // 营养师计划评估
-export interface PlanEvaluation {
+interface PlanEvaluation {
   id: string;
   clientId: string;
   fileName: string;

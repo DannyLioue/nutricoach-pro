@@ -7,7 +7,7 @@
 /**
  * Supported AI providers
  */
-export type AIProviderType = 'google' | 'openai' | 'anthropic';
+type AIProviderType = 'google' | 'openai' | 'anthropic';
 
 /**
  * AI task types that can be configured with different models
@@ -30,7 +30,7 @@ export type AICapability = 'text' | 'vision' | 'json-mode' | 'function-calling';
 /**
  * AI Provider entity
  */
-export interface AIProvider {
+interface AIProvider {
   id: string;
   name: AIProviderType;
   displayName: string;
@@ -42,7 +42,7 @@ export interface AIProvider {
 /**
  * AI Model entity
  */
-export interface AIModel {
+interface AIModel {
   id: string;
   providerId: string;
   modelId: string; // e.g., "gemini-2.5-pro", "gpt-4o"
@@ -58,7 +58,7 @@ export interface AIModel {
 /**
  * User's stored API key (safe display info only)
  */
-export interface UserAIKey {
+interface UserAIKey {
   id: string;
   userId: string;
   providerId: string;
@@ -72,7 +72,7 @@ export interface UserAIKey {
 /**
  * User's model configuration for a specific task
  */
-export interface AIModelConfig {
+interface AIModelConfig {
   id: string;
   userId: string;
   modelId: string;
@@ -93,7 +93,7 @@ export interface UserAIPreferences {
 /**
  * Configuration display for UI - current model for a task
  */
-export interface AITaskConfig {
+interface AITaskConfig {
   taskType: AITaskType;
   taskName: string; // Human-readable name (e.g., "健康报告分析")
   description: string; // Description of what the task does
