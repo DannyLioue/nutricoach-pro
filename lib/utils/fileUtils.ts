@@ -201,7 +201,7 @@ function getFileExtension(filename: string): string {
  * @param file - The file to check
  * @returns True if the file is an audio file
  */
-export function isAudioFile(file: File): boolean {
+function isAudioFile(file: File): boolean {
   if (file.type && SUPPORTED_AUDIO_FORMATS.includes(file.type)) {
     return true;
   }
@@ -215,6 +215,6 @@ export function isAudioFile(file: File): boolean {
  * @param file - The file to check
  * @returns True if the file is an image file
  */
-export function isImageFile(file: File): boolean {
+function isImageFile(file: File): boolean {
   return file.type ? SUPPORTED_IMAGE_FORMATS.includes(file.type) : false;
 }

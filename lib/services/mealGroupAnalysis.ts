@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db/prisma';
 import { evaluateDietPhotoCompliance, evaluateTextDescriptionCompliance } from '@/lib/ai/gemini';
 
 // 计算年龄的辅助函数
-export function calculateAge(birthDate: Date | string): number {
+function calculateAge(birthDate: Date | string): number {
   const birth = new Date(birthDate);
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
@@ -14,7 +14,7 @@ export function calculateAge(birthDate: Date | string): number {
 }
 
 // 解析健康问题
-export function parseHealthConcerns(healthConcernsStr: string): string[] {
+function parseHealthConcerns(healthConcernsStr: string): string[] {
   try {
     const parsed = JSON.parse(healthConcernsStr || '[]');
     return Array.isArray(parsed) ? parsed : [];

@@ -68,7 +68,7 @@ export function validateVideoUrl(
  * @param videos 包含视频信息的对象数组
  * @returns 验证结果数组
  */
-export function validateVideoUrls(
+function validateVideoUrls(
   videos: Array<{
     videoUrl?: string;
     videoPlatform?: VideoPlatform;
@@ -88,7 +88,7 @@ export function validateVideoUrls(
  * @param videos 包含视频信息的对象数组
  * @returns 统计信息
  */
-export function getVideoStats(
+function getVideoStats(
   videos: Array<{
     videoUrl?: string;
     videoPlatform?: VideoPlatform;

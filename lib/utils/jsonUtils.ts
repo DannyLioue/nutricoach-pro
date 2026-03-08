@@ -40,7 +40,7 @@ export function safeJSONParse<T>(json: string | null | undefined, fallback: T): 
  * const str = safeJSONStringify({ name: 'test' }, '{}');
  * const fallback = safeJSONStringify(circularObj, '{}'); // returns '{}'
  */
-export function safeJSONStringify(obj: unknown, fallback: string = '{}'): string {
+function safeJSONStringify(obj: unknown, fallback: string = '{}'): string {
   try {
     return JSON.stringify(obj);
   } catch (error) {
@@ -73,6 +73,6 @@ export function safeJSONParseArray<T = unknown>(json: string | null | undefined)
  * const obj = safeJSONParseObject('{"key":"value"}'); // {key: 'value'}
  * const empty = safeJSONParseObject('invalid'); // {}
  */
-export function safeJSONParseObject<T = Record<string, unknown>>(json: string | null | undefined): T {
+function safeJSONParseObject<T = Record<string, unknown>>(json: string | null | undefined): T {
   return safeJSONParse<T>(json, {} as T);
 }
